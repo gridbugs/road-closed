@@ -34,7 +34,7 @@ impl<'a> ContextContainsRealtimeComponents for Context<'a> {
     fn components_mut(&mut self) -> &mut Self::Components {
         &mut self.world.realtime_components
     }
-    fn realtime_entities(&self) -> entity_table::Entities {
+    fn realtime_entities(&self) -> entity_table::Entities<'_> {
         self.world.components.realtime.entities()
     }
 }

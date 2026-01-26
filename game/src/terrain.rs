@@ -425,7 +425,7 @@ impl Terrain {
         }
         match level_index {
             0 => {
-                let pool = vec![OrganType::Claw, OrganType::CronenbergPistol];
+                let pool = [OrganType::Claw, OrganType::CronenbergPistol];
                 if let Some(coord) = npc_spawn_candidates.pop() {
                     let organ = Organ {
                         type_: *pool.choose(rng).unwrap(),
@@ -435,7 +435,7 @@ impl Terrain {
                     };
                     world.spawn_item(coord, Item::OrganContainer(Some(organ)));
                 }
-                let pool = vec![
+                let pool = [
                     Item::PistolAmmo,
                     Item::PistolAmmo,
                     Item::PistolAmmo,
@@ -450,7 +450,7 @@ impl Terrain {
                 }
             }
             1 => {
-                let pool = vec![
+                let pool = [
                     OrganType::Claw,
                     OrganType::CronenbergPistol,
                     OrganType::CronenbergShotgun,
@@ -488,7 +488,7 @@ impl Terrain {
                 }
             }
             2 => {
-                let pool = vec![
+                let pool = [
                     OrganType::Claw,
                     OrganType::CronenbergPistol,
                     OrganType::CronenbergShotgun,
@@ -505,7 +505,7 @@ impl Terrain {
                         world.spawn_item(coord, Item::OrganContainer(Some(organ)));
                     }
                 }
-                let pool = vec![
+                let pool = [
                     Item::Battery,
                     Item::Battery,
                     Item::PistolAmmo,
@@ -522,7 +522,7 @@ impl Terrain {
                 }
             }
             3 => {
-                let pool = vec![
+                let pool = [
                     Item::Battery,
                     Item::Battery,
                     Item::PistolAmmo,

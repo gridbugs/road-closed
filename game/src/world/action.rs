@@ -70,7 +70,6 @@ impl World {
                     .update_coord(projectile_entity, next_coord);
             } else {
                 self.projectile_stop(projectile_entity, external_events, message_log, rng);
-                return;
             }
         } else {
             self.components.remove_entity(projectile_entity);
@@ -177,34 +176,32 @@ impl World {
             hit_points.set_current(0);
             self.character_die(character, rng, external_events, message_log);
         } else {
-            let hp_copy = hit_points.clone();
+            let hp_copy = *hit_points;
             hit_points.decrease(hit_points_to_lose);
-            if self.components.split_on_damage.contains(character) {
-                if hit_points.current() > 1 {
-                    if let Some(coord) = self.spatial_table.coord_of(character) {
-                        let copy_hit_poinst = hit_points.current() / 2;
-                        hit_points.decrease(copy_hit_poinst);
-                        let hit_points = hit_points.clone();
-                        let mut copy_data = self.components.clone_entity_data(character);
-                        copy_data.health = Some(Meter::new(copy_hit_poinst, hit_points.max()));
-                        if let Some(copy_coord) = self.nearest_characterless_coord(coord) {
-                            let copy_entity = self.entity_allocator.alloc();
-                            self.components.insert_entity_data(copy_entity, copy_data);
-                            let _ = self.spatial_table.update(
-                                copy_entity,
-                                Location {
-                                    coord: copy_coord,
-                                    layer: Some(Layer::Character),
-                                },
-                            );
-                        }
+            if self.components.split_on_damage.contains(character) && hit_points.current() > 1 {
+                if let Some(coord) = self.spatial_table.coord_of(character) {
+                    let copy_hit_poinst = hit_points.current() / 2;
+                    hit_points.decrease(copy_hit_poinst);
+                    let hit_points = *hit_points;
+                    let mut copy_data = self.components.clone_entity_data(character);
+                    copy_data.health = Some(Meter::new(copy_hit_poinst, hit_points.max()));
+                    if let Some(copy_coord) = self.nearest_characterless_coord(coord) {
+                        let copy_entity = self.entity_allocator.alloc();
+                        self.components.insert_entity_data(copy_entity, copy_data);
+                        let _ = self.spatial_table.update(
+                            copy_entity,
+                            Location {
+                                coord: copy_coord,
+                                layer: Some(Layer::Character),
+                            },
+                        );
                     }
                 }
             }
             if self.components.boss.contains(character) {
                 let hit_points = self.components.health.get(character).unwrap();
                 let thresh1 = 2 * hp_copy.max() / 3;
-                let thresh2 = 1 * hp_copy.max() / 3;
+                let thresh2 = hp_copy.max() / 3;
                 if (hp_copy.current() > thresh1 && hit_points.current() <= thresh1)
                     || (hp_copy.current() > thresh2 && hit_points.current() <= thresh2)
                 {
@@ -304,8 +301,7 @@ impl World {
             }
         }
         if let Some(simple_inventory) = self.components.simple_inventory.get_mut(character) {
-            use std::mem;
-            let simple_inventory = mem::replace(simple_inventory, Vec::new());
+            let simple_inventory = std::mem::take(simple_inventory);
             let current_coord = self.spatial_table.coord_of(character).unwrap();
             for entity in simple_inventory {
                 if let Some(coord) = self.nearest_itemless_coord(current_coord) {
@@ -460,41 +456,35 @@ impl World {
     ) {
         let player_entity = self.components.player.entities().next().unwrap();
         let organs = self.components.organs.get(player_entity).unwrap().clone();
-        for (i, organ) in organs.organs().into_iter().enumerate() {
+        for (i, organ) in organs.organs().iter().enumerate() {
             if let Some(organ) = organ {
-                if organ.traits.radioactitve {
-                    if rng.gen::<f64>() < 0.5 {
-                        message_log.push(Message::IrradiatedByOrgan(*organ));
-                        self.components
-                            .radiation
-                            .get_mut(player_entity)
-                            .unwrap()
-                            .increase(1);
+                if organ.traits.radioactitve && rng.gen::<f64>() < 0.5 {
+                    message_log.push(Message::IrradiatedByOrgan(*organ));
+                    self.components
+                        .radiation
+                        .get_mut(player_entity)
+                        .unwrap()
+                        .increase(1);
+                }
+                if organ.traits.prolific && rng.gen::<f64>() < 0.02 {
+                    if let Some(slot) = self
+                        .components
+                        .organs
+                        .get_mut(player_entity)
+                        .unwrap()
+                        .first_free_slot()
+                    {
+                        message_log.push(Message::OrganDuplication(*organ));
+                        *slot = Some(*organ);
                     }
                 }
-                if organ.traits.prolific {
-                    if rng.gen::<f64>() < 0.02 {
-                        if let Some(slot) = self
-                            .components
-                            .organs
-                            .get_mut(player_entity)
-                            .unwrap()
-                            .first_free_slot()
-                        {
-                            message_log.push(Message::OrganDuplication(*organ));
-                            *slot = Some(*organ);
-                        }
-                    }
-                }
-                if organ.traits.transient {
-                    if rng.gen::<f64>() < 0.01 {
-                        message_log.push(Message::OrganDisappear(*organ));
-                        self.components
-                            .organs
-                            .get_mut(player_entity)
-                            .unwrap()
-                            .remove(i);
-                    }
+                if organ.traits.transient && rng.gen::<f64>() < 0.01 {
+                    message_log.push(Message::OrganDisappear(*organ));
+                    self.components
+                        .organs
+                        .get_mut(player_entity)
+                        .unwrap()
+                        .remove(i);
                 }
             }
         }
@@ -508,7 +498,7 @@ impl World {
             let organs = self.components.organs.get_mut(player_entity).unwrap();
             let mut non_damaged_indices = Vec::new();
             let mut damaged_indices = Vec::new();
-            for (i, slot) in organs.organs().into_iter().enumerate() {
+            for (i, slot) in organs.organs().iter().enumerate() {
                 if let Some(organ) = slot {
                     if organ.traits.damaged {
                         damaged_indices.push(i);
@@ -537,20 +527,18 @@ impl World {
         if radiation.is_full() {
             radiation.clear();
             let organs = self.components.organs.get_mut(player_entity).unwrap();
-            if organs.num_free_slots() > 0 {
-                if rng.gen::<f64>() < 0.1 {
-                    message_log.push(Message::GrowTumor);
-                    *organs.first_free_slot().unwrap() = Some(Organ {
-                        type_: OrganType::Tumour,
-                        original: false,
-                        cybernetic: false,
-                        traits: OrganTraits {
-                            prolific: true,
-                            ..OrganTraits::none()
-                        },
-                    });
-                    return;
-                }
+            if organs.num_free_slots() > 0 && rng.gen::<f64>() < 0.1 {
+                message_log.push(Message::GrowTumor);
+                *organs.first_free_slot().unwrap() = Some(Organ {
+                    type_: OrganType::Tumour,
+                    original: false,
+                    cybernetic: false,
+                    traits: OrganTraits {
+                        prolific: true,
+                        ..OrganTraits::none()
+                    },
+                });
+                return;
             }
             if let Some(organ_to_mutate) = organs.choose_mut(rng) {
                 let trait_ = OrganTrait::choose(rng);
@@ -648,10 +636,8 @@ impl World {
                 }
                 OrganType::Lung => {
                     let mut amount = if organ.cybernetic { 2 } else { 1 };
-                    if organ.traits.damaged {
-                        if rng.gen::<f64>() < 0.5 {
-                            amount = 0;
-                        }
+                    if organ.traits.damaged && rng.gen::<f64>() < 0.5 {
+                        amount = 0;
                     }
                     oxygen_increase += amount;
                 }
@@ -683,38 +669,33 @@ impl World {
         }
         // separate loop so stomach is applied after heart
         for organ in &organs {
-            match organ.type_ {
-                OrganType::Stomach => {
-                    if rng.gen::<f64>() < 0.2 {
-                        let food = self.components.food.get_mut(player_entity).unwrap();
-                        if food.current() > 0 {
-                            food.decrease(1);
-                            if rng.gen::<f64>() < 0.5 {
-                                let mut health_increase = 1;
-                                if organ.cybernetic {
-                                    health_increase *= 2;
-                                }
-                                if organ.traits.damaged {
-                                    health_increase /= 2;
-                                }
-                                let health = self.components.health.get_mut(player_entity).unwrap();
-                                if health.is_full() {
-                                    //                                message_log.push(Message::DigestFoodNoHealthIncrease);
-                                } else {
-                                    health.increase(health_increase);
-                                    message_log.push(Message::DigestFood {
-                                        health_gain: health_increase,
-                                    });
-                                }
-                            }
+            if organ.type_ == OrganType::Stomach && rng.gen::<f64>() < 0.2 {
+                let food = self.components.food.get_mut(player_entity).unwrap();
+                if food.current() > 0 {
+                    food.decrease(1);
+                    if rng.gen::<f64>() < 0.5 {
+                        let mut health_increase = 1;
+                        if organ.cybernetic {
+                            health_increase *= 2;
+                        }
+                        if organ.traits.damaged {
+                            health_increase /= 2;
+                        }
+                        let health = self.components.health.get_mut(player_entity).unwrap();
+                        if health.is_full() {
+                            //                                message_log.push(Message::DigestFoodNoHealthIncrease);
                         } else {
-                            let health = self.components.health.get_mut(player_entity).unwrap();
-                            health.decrease(1);
-                            message_log.push(Message::HungerDamage);
+                            health.increase(health_increase);
+                            message_log.push(Message::DigestFood {
+                                health_gain: health_increase,
+                            });
                         }
                     }
+                } else {
+                    let health = self.components.health.get_mut(player_entity).unwrap();
+                    health.decrease(1);
+                    message_log.push(Message::HungerDamage);
                 }
-                _ => (),
             }
         }
         for po in self.player_organs() {

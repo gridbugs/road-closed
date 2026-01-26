@@ -75,7 +75,7 @@ fn render_meter(meter: Meter, colour: Rgb24, ctx: Ctx, fb: &mut FrameBuffer) {
     let style = Style::plain_text()
         .with_bold(true)
         .with_foreground(Rgb24::new_grey(255).to_rgba32(187));
-    let centre_offset = (width / 2) - ((string.len() + 1) / 2);
+    let centre_offset = (width / 2) - string.len().div_ceil(2);
     let filled_width = (meter.current() * width as u32) / meter.max().max(1);
     let filled_width = if filled_width == 0 && meter.current() > 0 {
         1
@@ -94,8 +94,8 @@ fn render_meter(meter: Meter, colour: Rgb24, ctx: Ctx, fb: &mut FrameBuffer) {
 fn render_meter_disabled(ctx: Ctx, fb: &mut FrameBuffer) {
     use text::*;
     let width = 15;
-    let string = format!("N/A");
-    let centre_offset = (width / 2) - ((string.len() + 1) / 2);
+    let string = "N/A".to_string();
+    let centre_offset = (width / 2) - string.len().div_ceil(2);
     let style = Style::plain_text()
         .with_bold(true)
         .with_foreground(Rgb24::new_grey(255).to_rgba32(187));
@@ -539,14 +539,14 @@ impl GameInstance {
                     NpcType::OrganClinic => colours::SHOP_ORGAN_CLINIC,
                     NpcType::OrganTrader => colours::SHOP_BG,
                 };
-                return RenderCell {
+                RenderCell {
                     character: Some('?'),
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colour.to_rgba32(255)),
-                };
+                }
             }
-        };
+        }
     }
 
     pub fn render_game(&self, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -702,7 +702,7 @@ impl GameInstance {
                         description,
                     } = describe_tile(tile);
                     let mut text = Text {
-                        parts: vec![StyledString::plain_text(format!("There is "))],
+                        parts: vec![StyledString::plain_text("There is ".to_string())],
                     };
                     text.parts.append(&mut name.parts);
                     if let Some(end) = end {
@@ -754,7 +754,7 @@ impl GameInstance {
                                 text.parts
                                     .push(StyledString::plain_text("\n\n".to_string()));
                                 text.parts
-                                    .push(StyledString::plain_text(format!("Its health is ")));
+                                    .push(StyledString::plain_text("Its health is ".to_string()));
                                 text.parts.push(StyledString {
                                     string: format!("{}/{}", health.current(), health.max()),
                                     style: Style::default().with_bold(true).with_foreground(
@@ -780,12 +780,12 @@ impl GameInstance {
     fn render_mode(&self, ctx: Ctx, fb: &mut FrameBuffer, mode: Mode) {
         use text::*;
         let text = match mode {
-            Mode::Normal => Text::new(vec![StyledString::plain_text(format!(
-                "Move with ←↑→↓.\nPress ? for more info."
-            ))]),
-            Mode::Aiming => Text::new(vec![StyledString::plain_text(format!(
-                "Aim with the mouse or ←↑→↓. Click or ENTER to fire."
-            ))]),
+            Mode::Normal => Text::new(vec![StyledString::plain_text(
+                "Move with ←↑→↓.\nPress ? for more info.".to_string(),
+            )]),
+            Mode::Aiming => Text::new(vec![StyledString::plain_text(
+                "Aim with the mouse or ←↑→↓. Click or ENTER to fire.".to_string(),
+            )]),
         };
         text.wrap_word().render(&(), ctx, fb);
     }
@@ -986,25 +986,25 @@ impl GameInstance {
                     style: border_style,
                 },
                 StyledString {
-                    string: format!("Description: "),
+                    string: "Description: ".to_string(),
                     style: border_text_style,
                 },
                 if cursor.is_some() {
                     match mode {
                         Mode::Normal => StyledString {
-                            string: format!("AT CURSOR"),
+                            string: "AT CURSOR".to_string(),
                             style: border_text_style
                                 .with_foreground(colours::NORMAL_MODE.to_rgba32(255)),
                         },
                         Mode::Aiming => StyledString {
-                            string: format!("AT TARGET"),
+                            string: "AT TARGET".to_string(),
                             style: border_text_style
                                 .with_foreground(colours::AIMING_MODE.to_rgba32(255)),
                         },
                     }
                 } else {
                     StyledString {
-                        string: format!("AT PLAYER"),
+                        string: "AT PLAYER".to_string(),
                         style: border_text_style.with_foreground(Rgba32::new_grey(255)),
                     }
                 },
@@ -1987,16 +1987,16 @@ pub fn message_to_text(message: Message) -> Text {
             "You close the door.".to_string(),
         )]),
         Message::ActionError(e) => Text::new(vec![StyledString::plain_text(match e {
-            ActionError::InvalidMove => format!("You can't walk there."),
-            ActionError::NothingToGet => format!("There is nothing here to pick up."),
+            ActionError::InvalidMove => "You can't walk there.".to_string(),
+            ActionError::NothingToGet => "There is nothing here to pick up.".to_string(),
             ActionError::InventoryIsFull => {
                 return Text::new(vec![
                     StyledString {
-                        string: format!("Inv. is full. "),
+                        string: "Inv. is full. ".to_string(),
                         style: Style::plain_text(),
                     },
                     StyledString {
-                        string: format!("(Press d to drop items.)"),
+                        string: "(Press d to drop items.)".to_string(),
                         style: Style::plain_text()
                             .with_foreground(Rgb24::new_grey(127).to_rgba32(255)),
                     },
@@ -2015,7 +2015,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("health"),
+                        string: "health".to_string(),
                         style: Style::new().with_foreground(colours::HEALTH.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already full.".to_string()),
@@ -2025,7 +2025,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("oxygen"),
+                        string: "oxygen".to_string(),
                         style: Style::new().with_foreground(colours::OXYGEN.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already full.".to_string()),
@@ -2035,7 +2035,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("poison"),
+                        string: "poison".to_string(),
                         style: Style::new().with_foreground(colours::POISON.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already empty.".to_string()),
@@ -2045,7 +2045,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("radiation"),
+                        string: "radiation".to_string(),
                         style: Style::new().with_foreground(colours::RADIATION.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already empty.".to_string()),
@@ -2055,7 +2055,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("power"),
+                        string: "power".to_string(),
                         style: Style::new().with_foreground(colours::POWER.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already full.".to_string()),
@@ -2065,7 +2065,7 @@ pub fn message_to_text(message: Message) -> Text {
                 return Text::new(vec![
                     StyledString::plain_text("But your ".to_string()),
                     StyledString {
-                        string: format!("food"),
+                        string: "food".to_string(),
                         style: Style::new().with_foreground(colours::FOOD.to_rgba32(255)),
                     },
                     StyledString::plain_text(" is already full.".to_string()),
@@ -2250,7 +2250,7 @@ pub fn message_to_text(message: Message) -> Text {
                 string: "food".to_string(),
                 style: Style::plain_text().with_foreground(colours::FOOD.to_rgba32(255)),
             },
-            StyledString::plain_text(format!(".")),
+            StyledString::plain_text(".".to_string()),
         ]),
         Message::ClawDrop(item) => Text::new(vec![
             StyledString::plain_text("You drop your ".to_string()),
@@ -2267,7 +2267,7 @@ pub fn message_to_text(message: Message) -> Text {
                         .saturating_scalar_mul_div(3, 2),
                 ),
             },
-            StyledString::plain_text(format!(".")),
+            StyledString::plain_text(".".to_string()),
         ]),
         Message::Smoke => Text::new(vec![StyledString::plain_text(
             "The smoke makes it hard to breath here.".to_string(),

@@ -101,10 +101,8 @@ impl World {
     pub fn nearest_itemless_coord(&self, start: Coord) -> Option<Coord> {
         use std::collections::{HashSet, VecDeque};
         if let Some(layers) = self.spatial_table.layers_at(start) {
-            if layers.feature.is_none() {
-                if layers.item.is_none() {
-                    return Some(start);
-                }
+            if layers.feature.is_none() && layers.item.is_none() {
+                return Some(start);
             }
         }
         let mut seen = HashSet::new();
@@ -208,7 +206,7 @@ impl World {
     pub fn player_inventory_item_index(&self, item: Item) -> Option<usize> {
         let player = self.components.player.entities().next().unwrap();
         let inventory = self.components.inventory.get(player).unwrap();
-        for (i, entity) in inventory.items().into_iter().enumerate() {
+        for (i, entity) in inventory.items().iter().enumerate() {
             if let Some(entity) = entity {
                 if let Some(current_item) = self.components.item.get(*entity) {
                     if *current_item == item {
@@ -239,11 +237,9 @@ impl World {
     pub fn player_has_vampiric_organ(&self) -> bool {
         let player_entity = self.components.player.entities().next().unwrap();
         let organs = self.components.organs.get(player_entity).unwrap();
-        for organ in organs.organs() {
-            if let Some(organ) = organ {
-                if organ.traits.vampiric {
-                    return true;
-                }
+        for organ in organs.organs().iter().flatten() {
+            if organ.traits.vampiric {
+                return true;
             }
         }
         false
@@ -252,11 +248,9 @@ impl World {
     pub fn player_has_cyber_core(&self) -> bool {
         let player_entity = self.components.player.entities().next().unwrap();
         let organs = self.components.organs.get(player_entity).unwrap();
-        for organ in organs.organs() {
-            if let Some(organ) = organ {
-                if organ.type_ == OrganType::CyberCore {
-                    return true;
-                }
+        for organ in organs.organs().iter().flatten() {
+            if organ.type_ == OrganType::CyberCore {
+                return true;
             }
         }
         false
@@ -272,20 +266,18 @@ impl World {
         } else {
             0
         };
-        for organ in organs.organs() {
-            if let Some(organ) = organ {
-                let mut active = true;
-                if organ.traits.vampiric && satiation.current() == 0 {
-                    active = false;
-                }
-                if organ.cybernetic && power == 0 {
-                    active = false;
-                }
-                ret.push(PlayerOrgan {
-                    organ: *organ,
-                    active,
-                });
+        for organ in organs.organs().iter().flatten() {
+            let mut active = true;
+            if organ.traits.vampiric && satiation.current() == 0 {
+                active = false;
             }
+            if organ.cybernetic && power == 0 {
+                active = false;
+            }
+            ret.push(PlayerOrgan {
+                organ: *organ,
+                active,
+            });
         }
         ret
     }

@@ -40,7 +40,7 @@ pub use world::{
 #[derive(Debug, Clone, Copy)]
 pub struct Omniscient;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Config {
     pub omniscient: Option<Omniscient>,
     pub demo: bool,
@@ -48,15 +48,6 @@ pub struct Config {
 }
 impl Config {
     pub const OMNISCIENT: Option<Omniscient> = Some(Omniscient);
-}
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            omniscient: None,
-            demo: false,
-            debug: false,
-        }
-    }
 }
 
 pub const MAX_ORGANS: usize = 8;
@@ -449,13 +440,7 @@ impl Game {
                 .insert(self.player_entity, inventory);
         }
         {
-            let mut hands = self
-                .world
-                .components
-                .hands
-                .get(self.player_entity)
-                .unwrap()
-                .clone();
+            let mut hands = *self.world.components.hands.get(self.player_entity).unwrap();
             if let Hand::Holding(ref mut held_entity) = &mut hands.left {
                 let data = self.world.components.remove_entity_data(*held_entity);
                 let new_item_entity = level.world.entity_allocator.alloc();
@@ -673,7 +658,7 @@ impl Game {
             .get(shop_entity)
             .unwrap();
         let choices = inventory
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, &item_entity)| {
                 let item = *self.world.components.item.get(item_entity).unwrap();
@@ -744,7 +729,7 @@ impl Game {
                         .bump_damage
                         .get(entity)
                         .cloned()
-                        .unwrap_or_else(|| 1..=1);
+                        .unwrap_or(1..=1);
                     self.world.damage_player(
                         entity,
                         self.rng.gen_range(damage_range),
@@ -797,7 +782,7 @@ impl Game {
                 continue;
             }
             if let Some(slow) = self.world.components.slow.get(agent_entity) {
-                if self.turn_count % slow != 0 {
+                if !self.turn_count.is_multiple_of(*slow) {
                     continue;
                 }
             }
@@ -892,15 +877,13 @@ impl Game {
                 ..
             }) = self.world.spatial_table.layers_at(self.player_coord())
             {
-                if self.world.components.exit.contains(*feature) {
-                    if self.boss_dead {
-                        for po in self.world.player_organs() {
-                            if po.organ.type_ == OrganType::CorruptedHeart {
-                                return Some(Win::Bad);
-                            }
+                if self.world.components.exit.contains(*feature) && self.boss_dead {
+                    for po in self.world.player_organs() {
+                        if po.organ.type_ == OrganType::CorruptedHeart {
+                            return Some(Win::Bad);
                         }
-                        return Some(Win::Good);
                     }
+                    return Some(Win::Good);
                 }
             }
         }
@@ -1532,7 +1515,7 @@ impl Game {
             .inventory
             .get(self.player_entity)
             .unwrap();
-        for (i, slot) in inventory.items().into_iter().enumerate() {
+        for (i, slot) in inventory.items().iter().enumerate() {
             if let Some(item_entity) = slot {
                 if let Some(Item::OrganContainer(Some(organ))) =
                     self.world.components.item.get(*item_entity)
@@ -1563,7 +1546,7 @@ impl Game {
             .organs
             .get(self.player_entity)
             .unwrap();
-        for (i, organ) in organs.organs().into_iter().enumerate() {
+        for (i, organ) in organs.organs().iter().enumerate() {
             if let Some(organ) = organ {
                 choices.push(MenuChoice::ClinicRemoveOrgan {
                     organ: *organ,
@@ -1586,7 +1569,7 @@ impl Game {
             .get(clinic_entity)
             .unwrap();
         let choices = organs
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, organ)| MenuChoice::ClinicBuyOrgan {
                 clinic_entity,
@@ -1731,9 +1714,7 @@ impl Game {
                     Item::OrganContainer(None) => {
                         if let Some(organs) = self.organs_of_corpse_at_player() {
                             return Some(GameControlFlow::Menu(Menu {
-                                text: format!(
-                                    "Choose an organ to harvest. Corpse will be destroyed. (escape to cancel):"
-                                ),
+                                text: "Choose an organ to harvest. Corpse will be destroyed. (escape to cancel):".to_string(),
                                 image: None,
                                 choices: organs
                                     .into_iter()
@@ -1894,35 +1875,33 @@ impl Game {
                         if self.world.num_player_claws() >= 2 {
                             self.message_log
                                 .push(Message::ActionError(ActionError::NeedsOneHand));
-                        } else {
-                            if self.world.num_player_claws() == 1 {
-                                let player_hands = self
-                                    .world
-                                    .components
-                                    .hands
-                                    .get_mut(self.player_entity)
-                                    .unwrap();
-                                if player_hands.left == Hand::Claw {
-                                    self.player_equip_weapon_in_hand(WhichHand::Right, i);
-                                } else {
-                                    self.player_equip_weapon_in_hand(WhichHand::Left, i);
-                                }
+                        } else if self.world.num_player_claws() == 1 {
+                            let player_hands = self
+                                .world
+                                .components
+                                .hands
+                                .get_mut(self.player_entity)
+                                .unwrap();
+                            if player_hands.left == Hand::Claw {
+                                self.player_equip_weapon_in_hand(WhichHand::Right, i);
                             } else {
-                                return Some(GameControlFlow::Menu(Menu {
-                                    text: format!("Which hand? (escape to cancel)"),
-                                    image: None,
-                                    choices: vec![
-                                        MenuChoice::EquipWeaponInHand {
-                                            which_hand: WhichHand::Left,
-                                            inventory_index: i,
-                                        },
-                                        MenuChoice::EquipWeaponInHand {
-                                            which_hand: WhichHand::Right,
-                                            inventory_index: i,
-                                        },
-                                    ],
-                                }));
+                                self.player_equip_weapon_in_hand(WhichHand::Left, i);
                             }
+                        } else {
+                            return Some(GameControlFlow::Menu(Menu {
+                                text: "Which hand? (escape to cancel)".to_string(),
+                                image: None,
+                                choices: vec![
+                                    MenuChoice::EquipWeaponInHand {
+                                        which_hand: WhichHand::Left,
+                                        inventory_index: i,
+                                    },
+                                    MenuChoice::EquipWeaponInHand {
+                                        which_hand: WhichHand::Right,
+                                        inventory_index: i,
+                                    },
+                                ],
+                            }));
                         }
                     }
                     Item::Shotgun | Item::RocketLauncher => {
@@ -2031,10 +2010,8 @@ impl Game {
     fn get_appropriate_gun_ammo(&self, which_hand: WhichHand, gun_type: GunType) -> Option<u32> {
         if let Some(entity) = self.player_hand_entity(which_hand) {
             if let Some(gun) = self.world.components.gun.get(entity) {
-                if gun.type_ == gun_type {
-                    if !gun.ammo.is_full() {
-                        return Some(gun.ammo.current());
-                    }
+                if gun.type_ == gun_type && !gun.ammo.is_full() {
+                    return Some(gun.ammo.current());
                 }
             }
         }
@@ -2229,8 +2206,7 @@ impl Game {
     }
 
     pub fn take_external_events(&mut self) -> Vec<ExternalEvent> {
-        use std::mem;
-        mem::replace(&mut self.external_events, Vec::new())
+        std::mem::take(&mut self.external_events)
     }
 
     pub fn player_stats(&self) -> PlayerStats {

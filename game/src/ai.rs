@@ -256,7 +256,7 @@ impl<'a, R: Rng> BestSearch for Wander<'a, R> {
                             my_coord,
                             coord,
                             vision_distance::Circle::new_squared(40),
-                            &self.world,
+                            self.world,
                         );
                         if can_see_character && self.rng.gen_range(0u8..4) > 0 {
                             return false;
@@ -418,10 +418,7 @@ impl Agent {
                     5,
                     &ai_context.item_distance,
                 );
-                match maybe_cardinal_direction {
-                    None => None,
-                    Some(cardinal_direction) => Some(Input::Walk(cardinal_direction)),
-                }
+                maybe_cardinal_direction.map(Input::Walk)
             }
             Behaviour::Wander { avoid } => {
                 let mut path_node = ai_context.wander_path.pop();
@@ -451,11 +448,7 @@ impl Agent {
                     );
                     path_node = ai_context.wander_path.pop();
                 }
-                if let Some(path_node) = path_node {
-                    Some(Input::Walk(path_node.in_direction))
-                } else {
-                    None
-                }
+                path_node.map(|path_node| Input::Walk(path_node.in_direction))
             }
             Behaviour::Flee => {
                 let player_flee = ai_context.player_flee.get(&npc.movement).unwrap();

@@ -155,7 +155,7 @@ impl RealtimeComponent for ParticleEmitterState {
         let until_next_event = self.emit_particle_every_period;
         let (fade_state, light_colour_fade_state) = match self.fade_out_state.as_mut() {
             None => (
-                self.particle_spec.fade_duration.map(|d| FadeState::new(d)),
+                self.particle_spec.fade_duration.map(FadeState::new),
                 self.particle_spec.light_colour_fade.as_ref().map(|l| {
                     let fade_state = FadeState::new(l.duration);
                     LightColourFadeState {

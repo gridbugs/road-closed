@@ -11,7 +11,7 @@ mod text;
 
 pub use game_loop::{AppStorage, InitialRngSeed};
 
-pub const NAME: &'static str = "Electric Organ";
+pub const NAME: &str = "Electric Organ";
 
 struct AppState {
     game_loop_data: game_loop::GameLoopData,

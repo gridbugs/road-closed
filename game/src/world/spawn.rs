@@ -79,7 +79,7 @@ fn random_organ_traits<R: Rng>(rng: &mut R) -> OrganTraits {
 }
 
 fn random_basic_organ<R: Rng>(rng: &mut R) -> Organ {
-    let types = vec![
+    let types = [
         OrganType::Heart,
         OrganType::Lung,
         OrganType::Stomach,
@@ -1009,7 +1009,7 @@ impl World {
     }
 
     pub fn spawn_gun_store<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
-        let item_pool = vec![
+        let item_pool = [
             Item::Pistol,
             Item::PistolAmmo,
             Item::Shotgun,
@@ -1050,7 +1050,7 @@ impl World {
     }
 
     pub fn spawn_item_store<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
-        let item_pool = vec![
+        let item_pool = [
             Item::Stimpack,
             Item::Antidote,
             Item::BloodVialEmpty,

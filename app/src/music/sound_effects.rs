@@ -64,10 +64,10 @@ pub fn shotgun(trig: impl FrameSigT<Item = bool> + 'static) -> Sig<impl SigT<Ite
     )
     .build();
     let noise = noise::white().filter(low_pass::moog_ladder::oberheim(2000.0)) * 10.0;
-    let filtered_osc = (osc + noise).filter(low_pass::moog_ladder::oberheim(
+
+    (osc + noise).filter(low_pass::moog_ladder::oberheim(
         env.clone() * (10000.0 + make_noise() * 5000.0),
-    ));
-    filtered_osc
+    ))
 }
 
 pub fn rocket(trig: impl FrameSigT<Item = bool> + 'static) -> Sig<impl SigT<Item = f32>> {
@@ -82,10 +82,10 @@ pub fn rocket(trig: impl FrameSigT<Item = bool> + 'static) -> Sig<impl SigT<Item
         .exp_01(1.0)
         .shared();
     let noise = noise::white().filter(low_pass::moog_ladder::oberheim(8000.0)) * 10.0;
-    let filtered_osc = noise.filter(low_pass::moog_ladder::oberheim(
+
+    noise.filter(low_pass::moog_ladder::oberheim(
         env.clone() * (5000.0 + make_noise() * 1000.0),
-    ));
-    filtered_osc
+    ))
 }
 
 pub fn explosion(trig: impl FrameSigT<Item = bool> + 'static) -> Sig<impl SigT<Item = f32>> {
@@ -112,8 +112,8 @@ pub fn explosion(trig: impl FrameSigT<Item = bool> + 'static) -> Sig<impl SigT<I
     )
     .build();
     let noise = noise::white().filter(low_pass::moog_ladder::oberheim(2000.0)) * 10.0;
-    let filtered_osc = (osc + noise).filter(low_pass::moog_ladder::oberheim(
+
+    (osc + noise).filter(low_pass::moog_ladder::oberheim(
         env.clone() * (10000.0 + make_noise() * 5000.0),
-    ));
-    filtered_osc
+    ))
 }

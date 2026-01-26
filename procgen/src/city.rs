@@ -290,7 +290,8 @@ impl Map1 {
         let mut grid1 = self.grid.clone();
         for (coord, &tile) in self.grid.enumerate() {
             if let Tile1::Ground(Ground1::Street) = tile {
-                for d in [East] {
+                {
+                    let d = East;
                     let coord = coord + d.coord();
                     if coord.is_valid(grid1.size()) {
                         *grid1.get_checked_mut(coord) = Tile1::Ground(Ground1::Street);
@@ -353,7 +354,7 @@ impl Map1 {
                     Tile1::Wall => print!("."),
                 }
             }
-            println!("");
+            println!();
         }
     }
 
@@ -468,7 +469,7 @@ impl Map2 {
                     Tile2::Wall => print!("."),
                 }
             }
-            println!("");
+            println!();
         }
     }
 
@@ -737,7 +738,7 @@ impl Map3 {
                     Tile3::Floor => print!("."),
                 }
             }
-            println!("");
+            println!();
         }
     }
 
@@ -950,11 +951,9 @@ impl Map4 {
                                         boundary.insert(coord);
                                     }
                                 }
-                            } else {
-                                if area_coords.insert(coord) {
-                                    seen.insert(coord);
-                                    queue.push_back(coord);
-                                }
+                            } else if area_coords.insert(coord) {
+                                seen.insert(coord);
+                                queue.push_back(coord);
                             }
                         }
                     }
@@ -1059,7 +1058,7 @@ impl Map4 {
                     Tile4::Door => print!("+"),
                 }
             }
-            println!("");
+            println!();
         }
     }
 
@@ -1212,15 +1211,13 @@ impl Map5 {
             .grid
             .enumerate()
             .filter_map(|(coord, &tile)| {
-                if tile == Tile5::Floor {
-                    if coord.manhattan_distance(corner_coord) < 10 {
-                        for d in Direction::all() {
-                            if self.grid.get(coord + d.coord()) == Some(&Tile5::Wall) {
-                                return None;
-                            }
+                if tile == Tile5::Floor && coord.manhattan_distance(corner_coord) < 10 {
+                    for d in Direction::all() {
+                        if self.grid.get(coord + d.coord()) == Some(&Tile5::Wall) {
+                            return None;
                         }
-                        return Some(coord);
                     }
+                    return Some(coord);
                 }
                 None
             })
@@ -1288,7 +1285,7 @@ impl Map5 {
                     Tile5::StairsUp => print!("<"),
                 }
             }
-            println!("");
+            println!();
         }
     }
 
@@ -1304,13 +1301,11 @@ impl Map5 {
             for d in CardinalDirection::all() {
                 let coord = coord + d.coord();
                 if let Some(tile) = self.grid.get(coord) {
-                    if tile.is_open() {
-                        if seen.insert(coord) {
-                            if coord == end {
-                                return true;
-                            }
-                            queue.push_front(coord);
+                    if tile.is_open() && seen.insert(coord) {
+                        if coord == end {
+                            return true;
                         }
+                        queue.push_front(coord);
                     }
                 }
             }
@@ -1324,7 +1319,7 @@ impl Map5 {
             let mut map5 = Self::from_map4(&map4);
             let mut corners = OrdinalDirection::all().collect::<Vec<_>>();
             corners.shuffle(rng);
-            map5.add_tentacles(corners.pop().unwrap(), &tentacle_spec, rng);
+            map5.add_tentacles(corners.pop().unwrap(), tentacle_spec, rng);
             map5.clear_around_tentactle();
             let stairs_down =
                 if let Some(x) = map5.add_stairs(corners.pop().unwrap(), Tile5::StairsDown, rng) {

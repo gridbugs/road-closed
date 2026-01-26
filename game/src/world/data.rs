@@ -397,7 +397,7 @@ impl Organ {
         if traits.len() == 1 {
             price = price * 2 / 3;
         } else if traits.len() > 1 {
-            price = price / 3;
+            price /= 3;
         }
         price
     }
@@ -493,8 +493,7 @@ impl Inventory {
     }
 
     pub fn remove(&mut self, i: usize) -> Option<Entity> {
-        use std::mem;
-        mem::replace(&mut self.items[i], None)
+        self.items[i].take()
     }
 
     pub fn items(&self) -> &[Option<Entity>] {
@@ -532,8 +531,7 @@ impl Organs {
     }
 
     pub fn remove(&mut self, i: usize) -> Option<Organ> {
-        use std::mem;
-        mem::replace(&mut self.organs[i], None)
+        self.organs[i].take()
     }
 
     pub fn num_claws(&self) -> usize {

@@ -16,7 +16,6 @@ use game::{
     MenuChoice as GameMenuChoice, Victory, WhichHand,
 };
 use general_storage_static::{self as storage, format, StaticStorage as Storage};
-use line_2d;
 use rand::{Rng, SeedableRng};
 use rand_isaac::Isaac64Rng;
 use rgb_int::Rgb24;
@@ -522,21 +521,18 @@ impl GameLoopData {
                     }
                 });
                 for external_event in instance.game.take_external_events() {
-                    match external_event {
-                        ExternalEvent::Explosion(_) => {
-                            self.music_state.sfx_explosion();
-                            let mut rng = Isaac64Rng::from_entropy();
-                            let screen_shake = ScreenShake {
-                                countdown: 2,
-                                offset: if rng.gen() {
-                                    Coord::new(-1, 0)
-                                } else {
-                                    Coord::new(1, 0)
-                                },
-                            };
-                            self.screen_shake = Some(screen_shake);
-                        }
-                        _ => (),
+                    if let ExternalEvent::Explosion(_) = external_event {
+                        self.music_state.sfx_explosion();
+                        let mut rng = Isaac64Rng::from_entropy();
+                        let screen_shake = ScreenShake {
+                            countdown: 2,
+                            offset: if rng.gen() {
+                                Coord::new(-1, 0)
+                            } else {
+                                Coord::new(1, 0)
+                            },
+                        };
+                        self.screen_shake = Some(screen_shake);
                     }
                 }
                 witness
@@ -551,10 +547,10 @@ struct GameInstanceComponent(Option<witness::Running>);
 
 fn drop_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
     let choices = (0..game.inventory_size())
-        .map(|i| GameMenuChoice::DropItem(i))
+        .map(GameMenuChoice::DropItem)
         .collect::<Vec<_>>();
     let menu = GameMenu {
-        text: format!("Select an item to drop (escape to cancel):"),
+        text: "Select an item to drop (escape to cancel):".to_string(),
         choices,
         image: None,
     };
@@ -563,10 +559,10 @@ fn drop_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
 
 fn apply_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
     let choices = (0..game.inventory_size())
-        .map(|i| GameMenuChoice::ApplyItem(i))
+        .map(GameMenuChoice::ApplyItem)
         .collect::<Vec<_>>();
     let menu = GameMenu {
-        text: format!("Select an item to apply (escape to cancel):"),
+        text: "Select an item to apply (escape to cancel):".to_string(),
         choices,
         image: None,
     };
@@ -874,7 +870,7 @@ impl Component for MainMenuBackground {
         }
         let stride = 10;
         let virtual_width = 20;
-        let offset = ((virtual_width * stride) / 2) as i32 - (screen_size.width() / 2) as i32;
+        let offset = ((virtual_width * stride) / 2) - (screen_size.width() / 2) as i32;
         let end = Coord::new(screen_size.width() as i32 / 2, 5);
         let line_render_cell = |y| RenderCell {
             character: None,
@@ -889,7 +885,7 @@ impl Component for MainMenuBackground {
         };
         for i in 0..virtual_width {
             let x = (i * stride) - offset - ((self.count / 5) % stride as u64) as i32;
-            let start = Coord::new(x as i32, screen_size.height() as i32);
+            let start = Coord::new(x, screen_size.height() as i32);
             for coord in line_2d::coords_between(start, end) {
                 if coord.x >= 0 && coord.x <= screen_size.width() as i32 {
                     fb.set_cell_relative_to_ctx(ctx, coord, 0, line_render_cell(coord.y));
@@ -980,9 +976,7 @@ impl Component for MessageLog {
         match self.reason {
             MessageLogReason::Die => {
                 Text::new(vec![StyledString {
-                string: format!(
-                    "Your final moments. Scroll with ↑↓. Press any other key to return to main menu."
-                ),
+                string: "Your final moments. Scroll with ↑↓. Press any other key to return to main menu.".to_string(),
                 style: Style::plain_text().with_foreground(Rgba32::new_grey(187)),
             }])
             .wrap_word()
@@ -990,7 +984,8 @@ impl Component for MessageLog {
             }
             MessageLogReason::Gameplay => {
                 Text::new(vec![StyledString {
-                    string: format!("Scroll with ↑↓. Press any other key to return to the game."),
+                    string: "Scroll with ↑↓. Press any other key to return to the game."
+                        .to_string(),
                     style: Style::plain_text().with_foreground(Rgba32::new_grey(127)),
                 }])
                 .wrap_word()
@@ -998,9 +993,8 @@ impl Component for MessageLog {
             }
             MessageLogReason::Win => {
                 Text::new(vec![StyledString {
-                    string: format!(
-                        "You won. Scroll with ↑↓. Press any other key to return to main menu."
-                    ),
+                    string: "You won. Scroll with ↑↓. Press any other key to return to main menu."
+                        .to_string(),
                     style: Style::plain_text().with_foreground(Rgba32::new_grey(187)),
                 }])
                 .wrap_word()
@@ -1013,7 +1007,7 @@ impl Component for MessageLog {
         let num_messages = message_log.len();
         if num_messages == 0 {
             StyledString {
-                string: format!("(No messages in log.)"),
+                string: "(No messages in log.)".to_string(),
                 style: Style::plain_text(),
             }
             .render(&(), ctx, fb);
@@ -1022,7 +1016,7 @@ impl Component for MessageLog {
                 .len()
                 .saturating_sub(ctx.bounding_box.size().height() as usize)
                 - self.scroll_from_bottom;
-            for (i, &ref message) in message_log[message_log_start..].into_iter().enumerate() {
+            for (i, message) in message_log[message_log_start..].iter().enumerate() {
                 message_to_text(message.clone()).render(&(), ctx.add_y(i as i32), fb);
             }
         }
@@ -1034,8 +1028,8 @@ impl Component for MessageLog {
         let instance = state.instance.as_ref().unwrap();
         let message_log = instance.game.inner_ref().message_log();
         let num_messages = message_log.len();
-        match event {
-            Event::Input(Input::Keyboard(key)) => match key {
+        if let Event::Input(Input::Keyboard(key)) = event {
+            match key {
                 KeyboardInput::Up => {
                     if num_messages > ctx.bounding_box.size().height() as usize {
                         let offset = num_messages - ctx.bounding_box.size().height() as usize;
@@ -1049,8 +1043,7 @@ impl Component for MessageLog {
                     self.scroll_from_bottom = self.scroll_from_bottom.saturating_sub(1);
                 }
                 _ => return Some(()),
-            },
-            _ => (),
+            }
         }
         None
     }
@@ -1086,7 +1079,7 @@ impl Component for ViewOrgans {
         use chargrid::text::*;
         let ctx = ctx.set_size(Self::SIZE).add_xy(1, 1);
         Text::new(vec![StyledString {
-            string: format!("Viewing your organs. Press any key to return to the game."),
+            string: "Viewing your organs. Press any key to return to the game.".to_string(),
             style: Style::plain_text().with_foreground(Rgba32::new_grey(127)),
         }])
         .wrap_word()
@@ -1329,13 +1322,13 @@ fn apply_item_description(item: Item) -> String {
 
 fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
     match choice {
-        GameMenuChoice::Empty => format!("(empty)"),
+        GameMenuChoice::Empty => "(empty)".to_string(),
         GameMenuChoice::Dummy => panic!(),
         GameMenuChoice::DropItem(i) => {
             if let Some(item) = game.inventory_item(i) {
                 item_string_for_menu(item)
             } else {
-                format!("(empty)")
+                "(empty)".to_string()
             }
         }
         GameMenuChoice::ApplyItem(i) => {
@@ -1346,7 +1339,7 @@ fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
                     apply_item_description(item)
                 )
             } else {
-                format!("(empty)")
+                "(empty)".to_string()
             }
         }
         GameMenuChoice::HarvestOrgan { organ, .. } => organ_string_for_menu(&organ),
@@ -1391,7 +1384,7 @@ fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
     }
 }
 
-const ALPHABET: &'static str = "abcdefghijklmnopqrstuvwxyz";
+const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
 
 fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
     use chargrid::align::*;
@@ -1408,8 +1401,8 @@ fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
         };
         for (choice, ch) in game_menu.choices.iter().zip(ALPHABET.chars()) {
             add_item(
-                choice.clone(),
-                menu_choice_string(instance.game.inner_ref(), choice.clone()),
+                *choice,
+                menu_choice_string(instance.game.inner_ref(), *choice),
                 ch,
             );
         }
@@ -1452,7 +1445,7 @@ fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
             Err(Close) => menu_witness.cancel(),
             Ok(choice) => {
                 if let Some(instance) = state.instance.as_mut() {
-                    menu_witness.commit(&mut instance.game, choice.clone())
+                    menu_witness.commit(&mut instance.game, choice)
                 } else {
                     menu_witness.cancel()
                 }

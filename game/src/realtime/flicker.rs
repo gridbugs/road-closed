@@ -1,6 +1,6 @@
 use crate::{realtime::Context, Tile};
 use entity_table_realtime::{Entity, RealtimeComponent, RealtimeComponentApplyEvent};
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{prelude::IndexedRandom, Rng, SeedableRng};
 use rand_isaac::Isaac64Rng;
 use rgb_int::{Rgb24, Rgba32};
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ impl spec::Flicker {
     pub fn build<R: Rng>(self, rng: &mut R) -> FlickerState {
         FlickerState {
             flicker: self,
-            rng: Isaac64Rng::from_rng(rng).unwrap(),
+            rng: Isaac64Rng::from_rng(rng),
         }
     }
 }

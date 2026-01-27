@@ -2,13 +2,13 @@ use crate::{
     world::{data::*, spatial::Layers},
     World,
 };
-use coord_2d::Coord;
+use coord_2d::ICoord;
 use direction::CardinalDirection;
 use entity_table::Entity;
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{prelude::IndexedRandom, seq::SliceRandom, Rng};
 
 impl World {
-    pub fn stairs_up_or_exit_coord(&self) -> Option<Coord> {
+    pub fn stairs_up_or_exit_coord(&self) -> Option<ICoord> {
         self.components
             .stairs_up
             .entities()
@@ -22,20 +22,20 @@ impl World {
                     .and_then(|entity| self.spatial_table.coord_of(entity))
             })
     }
-    pub fn stairs_down_coord(&self) -> Option<Coord> {
+    pub fn stairs_down_coord(&self) -> Option<ICoord> {
         self.components
             .stairs_down
             .entities()
             .next()
             .and_then(|entity| self.spatial_table.coord_of(entity))
     }
-    pub fn entity_coord(&self, entity: Entity) -> Option<Coord> {
+    pub fn entity_coord(&self, entity: Entity) -> Option<ICoord> {
         self.spatial_table.coord_of(entity)
     }
 
     pub fn can_npc_traverse_feature_at_coord_with_movement(
         &self,
-        coord: Coord,
+        coord: ICoord,
         movement: NpcMovement,
     ) -> bool {
         if let Some(layers) = self.spatial_table.layers_at(coord) {
@@ -54,14 +54,14 @@ impl World {
 
     pub fn can_npc_traverse_feature_at_coord_with_entity(
         &self,
-        coord: Coord,
+        coord: ICoord,
         npc_entity: Entity,
     ) -> bool {
         let npc = self.components.npc.get(npc_entity).expect("not an npc");
         self.can_npc_traverse_feature_at_coord_with_movement(coord, npc.movement)
     }
 
-    pub fn is_npc_at_coord(&self, coord: Coord) -> bool {
+    pub fn is_npc_at_coord(&self, coord: ICoord) -> bool {
         if let Some(layers) = self.spatial_table.layers_at(coord) {
             if let Some(character) = layers.character {
                 self.components.npc.contains(character)
@@ -72,7 +72,7 @@ impl World {
             false
         }
     }
-    pub fn get_opacity(&self, coord: Coord) -> u8 {
+    pub fn get_opacity(&self, coord: ICoord) -> u8 {
         if let Some(&Layers {
             feature: Some(feature_entity),
             ..
@@ -87,7 +87,7 @@ impl World {
             0
         }
     }
-    pub fn character_at_coord(&self, coord: Coord) -> Option<Entity> {
+    pub fn character_at_coord(&self, coord: ICoord) -> Option<Entity> {
         if let Some(layers) = self.spatial_table.layers_at(coord) {
             layers.character
         } else {
@@ -98,7 +98,7 @@ impl World {
         self.components.npc.get(entity)
     }
 
-    pub fn nearest_itemless_coord(&self, start: Coord) -> Option<Coord> {
+    pub fn nearest_itemless_coord(&self, start: ICoord) -> Option<ICoord> {
         use std::collections::{HashSet, VecDeque};
         if let Some(layers) = self.spatial_table.layers_at(start) {
             if layers.feature.is_none() && layers.item.is_none() {
@@ -128,7 +128,7 @@ impl World {
         None
     }
 
-    pub fn nearest_characterless_coord(&self, start: Coord) -> Option<Coord> {
+    pub fn nearest_characterless_coord(&self, start: ICoord) -> Option<ICoord> {
         use std::collections::{HashSet, VecDeque};
         if self
             .spatial_table
@@ -161,7 +161,7 @@ impl World {
         None
     }
 
-    pub fn nearest_non_poison_coord(&self, start: Coord) -> Option<Coord> {
+    pub fn nearest_non_poison_coord(&self, start: ICoord) -> Option<ICoord> {
         use std::collections::{HashSet, VecDeque};
         let layers = self.spatial_table.layers_at_checked(start);
         if layers.feature.is_none() {
@@ -175,7 +175,7 @@ impl World {
         seen.insert(start);
         let mut queue = VecDeque::new();
         queue.push_back(start);
-        let mut rng = StdRng::from_entropy();
+        let mut rng = rand::rng();
         while let Some(coord) = queue.pop_front() {
             let mut dirs = CardinalDirection::all().collect::<Vec<_>>();
             dirs.shuffle(&mut rng);
@@ -292,7 +292,7 @@ impl World {
         ret
     }
 
-    pub fn line_distance_stopping_at_solid(&self, from: Coord, to: Coord) -> Option<usize> {
+    pub fn line_distance_stopping_at_solid(&self, from: ICoord, to: ICoord) -> Option<usize> {
         let mut count = 0;
         for coord in line_2d::coords_between(from, to) {
             if let Some(Layers {
@@ -311,11 +311,11 @@ impl World {
         Some(count)
     }
 
-    pub fn random_characterless_coord<R: Rng>(&self, rng: &mut R) -> Option<Coord> {
+    pub fn random_characterless_coord<R: Rng>(&self, rng: &mut R) -> Option<ICoord> {
         let candidates = self
             .spatial_table
             .grid_size()
-            .coord_iter_row_major()
+            .icoord_iter_row_major()
             .filter(|coord| {
                 let layers = self.spatial_table.layers_at_checked(*coord);
                 layers.character.is_none() && layers.feature.is_none()

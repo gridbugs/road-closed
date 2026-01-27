@@ -1,8 +1,8 @@
 use crate::world::{data::*, World};
-use coord_2d::{Coord, Size};
+use coord_2d::{ICoord, UCoord};
 use direction::Direction;
 use procgen::city::{Map, TentacleSpec, Tile};
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{prelude::IndexedRandom, seq::SliceRandom, Rng};
 
 pub struct Terrain {
     pub world: World,
@@ -13,11 +13,11 @@ impl Terrain {
     pub fn generate_text() -> Self {
         let txt = include_str!("terrain.txt");
         let rows = txt.split('\n').collect::<Vec<_>>();
-        let mut world = World::new(Size::new(50, 25));
-        let mut rng = StdRng::from_entropy();
+        let mut world = World::new(UCoord::new(50, 25));
+        let mut rng = rand::rng();
         for (y, row) in rows.into_iter().enumerate() {
             for (x, ch) in row.chars().enumerate() {
-                let coord = Coord::new(x as i32, y as i32);
+                let coord = ICoord::new(x as i32, y as i32);
                 let floor_entity = world.spawn_floor(coord);
                 match ch {
                     '.' => (),
@@ -274,7 +274,7 @@ impl Terrain {
 
         for _ in 0..4 {
             if let Some(coord) = npc_spawn_candidates.pop() {
-                let roll = rng.gen::<f64>();
+                let roll = rng.random::<f64>();
                 if roll < 0.3 {
                     world.spawn_item(coord, Item::Antidote);
                 } else if roll < 0.6 {
@@ -316,11 +316,11 @@ impl Terrain {
         let mut num_glowers = 0;
         match level_index {
             0 => {
-                num_zombies = rng.gen_range(1..=1);
-                num_climbers = rng.gen_range(1..=2);
+                num_zombies = rng.random_range(1..=1);
+                num_climbers = rng.random_range(1..=2);
                 num_trespassers = 1;
                 num_snatchers = 1;
-                let hard_enemy_choice = rng.gen::<f64>();
+                let hard_enemy_choice = rng.random::<f64>();
                 if hard_enemy_choice < 0.33 {
                     num_boomers = 1;
                 } else if hard_enemy_choice < 0.66 {
@@ -330,14 +330,14 @@ impl Terrain {
                 }
             }
             1 => {
-                num_zombies = rng.gen_range(0..=2);
-                num_climbers = rng.gen_range(0..=2);
-                num_trespassers = rng.gen_range(0..=2);
-                num_snatchers = rng.gen_range(0..=2);
+                num_zombies = rng.random_range(0..=2);
+                num_climbers = rng.random_range(0..=2);
+                num_trespassers = rng.random_range(0..=2);
+                num_snatchers = rng.random_range(0..=2);
                 num_boomers = 1;
                 num_dividers = 1;
                 num_poisoners = 1;
-                let hard_enemy_choice = rng.gen::<f64>();
+                let hard_enemy_choice = rng.random::<f64>();
                 if hard_enemy_choice < 0.33 {
                     num_boomers = 0;
                 } else if hard_enemy_choice < 0.66 {
@@ -349,22 +349,22 @@ impl Terrain {
                 num_glowers = 1;
             }
             2 => {
-                num_zombies = rng.gen_range(0..=2);
-                num_climbers = rng.gen_range(0..=2);
-                num_trespassers = rng.gen_range(0..=2);
-                num_snatchers = rng.gen_range(0..=2);
-                num_boomers = rng.gen_range(0..=2);
-                num_dividers = rng.gen_range(0..=2);
-                num_poisoners = rng.gen_range(0..=2);
-                num_venters = rng.gen_range(0..=2);
-                num_glowers = rng.gen_range(0..=2);
+                num_zombies = rng.random_range(0..=2);
+                num_climbers = rng.random_range(0..=2);
+                num_trespassers = rng.random_range(0..=2);
+                num_snatchers = rng.random_range(0..=2);
+                num_boomers = rng.random_range(0..=2);
+                num_dividers = rng.random_range(0..=2);
+                num_poisoners = rng.random_range(0..=2);
+                num_venters = rng.random_range(0..=2);
+                num_glowers = rng.random_range(0..=2);
             }
             3 => {
-                num_zombies = rng.gen_range(1..=2);
-                num_climbers = rng.gen_range(1..=2);
+                num_zombies = rng.random_range(1..=2);
+                num_climbers = rng.random_range(1..=2);
                 num_trespassers = 1;
                 num_snatchers = 1;
-                let hard_enemy_choice = rng.gen::<f64>();
+                let hard_enemy_choice = rng.random::<f64>();
                 if hard_enemy_choice < 0.33 {
                     num_boomers = 1;
                 } else if hard_enemy_choice < 0.66 {

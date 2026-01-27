@@ -1,7 +1,7 @@
-use coord_2d::{Coord, Size};
+use coord_2d::{ICoord, UCoord};
 use direction::{CardinalDirection, Direction, OrdinalDirection};
 use grid_2d::Grid;
-use rand::{seq::SliceRandom, Rng};
+use rand::{prelude::IndexedRandom, seq::SliceRandom, Rng};
 use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +17,7 @@ enum Tile1 {
 }
 
 struct StreetBuilder {
-    coord: Coord,
+    coord: ICoord,
     direction: CardinalDirection,
 }
 
@@ -27,25 +27,25 @@ pub struct Map1 {
 }
 
 struct Rect {
-    coord: Coord,
-    size: Size,
+    coord: ICoord,
+    size: UCoord,
 }
 
 impl Rect {
-    fn coord_iter<'a>(&'a self) -> impl Iterator<Item = Coord> + 'a {
+    fn coord_iter<'a>(&'a self) -> impl Iterator<Item = ICoord> + 'a {
         self.size
-            .coord_iter_row_major()
+            .icoord_iter_row_major()
             .map(|coord| coord + self.coord)
     }
 
-    fn bottom_right(&self) -> Coord {
-        self.coord + self.size.to_coord().unwrap() - Coord::new(1, 1)
+    fn bottom_right(&self) -> ICoord {
+        self.coord + self.size.to_icoord() - ICoord::new(1, 1)
     }
 }
 
 impl Map1 {
     fn new() -> Self {
-        let grid = Grid::new_clone(Size::new(50, 25), Tile1::Wall);
+        let grid = Grid::new_clone(UCoord::new(50, 25), Tile1::Wall);
         Self {
             grid,
             street_builders: Vec::new(),
@@ -114,14 +114,14 @@ impl Map1 {
     }
 
     fn build_streets_tick<R: Rng>(&mut self, rng: &mut R) {
-        let index = rng.gen_range(0..self.street_builders.len());
+        let index = rng.random_range(0..self.street_builders.len());
         let sb = &mut self.street_builders[index];
         if !sb.coord.is_valid(self.grid.size()) {
             self.street_builders.swap_remove(index);
             return;
         }
         if let Tile1::Ground(_) = *self.grid.get_checked(sb.coord) {
-            if rng.gen::<f64>() < 0.5 {
+            if rng.random::<f64>() < 0.5 {
                 self.street_builders.swap_remove(index);
                 return;
             }
@@ -145,47 +145,47 @@ impl Map1 {
             if !*seen.get_checked(coord) {
                 let width = {
                     let mut i = 0;
-                    while let Some(&Tile1::Wall) = self.grid.get(coord + Coord::new(i, 0)) {
+                    while let Some(&Tile1::Wall) = self.grid.get(coord + ICoord::new(i, 0)) {
                         i += 1;
                     }
                     i as u32
                 };
                 let height = {
                     let mut i = 0;
-                    while let Some(&Tile1::Wall) = self.grid.get(coord + Coord::new(0, i)) {
+                    while let Some(&Tile1::Wall) = self.grid.get(coord + ICoord::new(0, i)) {
                         i += 1;
                     }
                     i as u32
                 };
                 let rect = Rect {
                     coord,
-                    size: Size::new(width, height),
+                    size: UCoord::new(width, height),
                 };
                 for coord in rect.coord_iter() {
                     *seen.get_checked_mut(coord) = true;
                 }
                 if width > self.grid.width() / 2 {
-                    let split_x = width / 2; //rng.gen_range(width / 3..(2 * width) / 3);
-                    let tile = if rng.gen::<f64>() < 0.5 {
+                    let split_x = width / 2; //rng.random_range(width / 3..(2 * width) / 3);
+                    let tile = if rng.random::<f64>() < 0.5 {
                         Ground1::Alley
                     } else {
                         Ground1::Street
                     };
                     for i in 0..height {
-                        let coord = coord + Coord::new(split_x as i32, i as i32);
+                        let coord = coord + ICoord::new(split_x as i32, i as i32);
                         *self.grid.get_checked_mut(coord) = Tile1::Ground(tile);
                     }
                 }
                 if height > self.grid.height() / 2 {
-                    let split_y = height / 2; // rng.gen_range(height / 3..(2 * height) / 3);
-                    let tile = if rng.gen::<f64>() < 0.5 {
+                    let split_y = height / 2; // rng.random_range(height / 3..(2 * height) / 3);
+                    let tile = if rng.random::<f64>() < 0.5 {
                         Ground1::Alley
                     } else {
                         Ground1::Street
                     };
 
                     for i in 0..width {
-                        let coord = coord + Coord::new(i as i32, split_y as i32);
+                        let coord = coord + ICoord::new(i as i32, split_y as i32);
                         *self.grid.get_checked_mut(coord) = Tile1::Ground(tile);
                     }
                 }
@@ -194,7 +194,7 @@ impl Map1 {
     }
 
     // check if removing part of a street would create an L-shaped corner
-    fn check_trim_candidate(&self, start: Coord) -> Option<Vec<Coord>> {
+    fn check_trim_candidate(&self, start: ICoord) -> Option<Vec<ICoord>> {
         use CardinalDirection::*;
         let direction = if start.x == 0 {
             East
@@ -257,7 +257,7 @@ impl Map1 {
             .collect::<Vec<_>>();
         candidates.shuffle(rng);
         for to_remove in candidates {
-            if rng.gen::<f64>() < 0.5 {
+            if rng.random::<f64>() < 0.5 {
                 for coord in to_remove {
                     *self.grid.get_checked_mut(coord) = Tile1::Wall;
                 }
@@ -495,13 +495,13 @@ pub struct Map3 {
 }
 
 struct Block {
-    coords: HashSet<Coord>,
+    coords: HashSet<ICoord>,
 }
 
 struct BlockSplitByWall {
     block1: Block,
     block2: Block,
-    wall: Vec<Coord>,
+    wall: Vec<ICoord>,
 }
 
 impl Block {
@@ -516,10 +516,8 @@ impl Block {
             x_max = x_max.max(coord.x);
             y_max = y_max.max(coord.y);
         }
-        let coord = Coord::new(x_min, y_min);
-        let size = (Coord::new(x_max, y_max) - coord + Coord::new(1, 1))
-            .to_size()
-            .unwrap();
+        let coord = ICoord::new(x_min, y_min);
+        let size = (ICoord::new(x_max, y_max) - coord + ICoord::new(1, 1)).to_ucoord();
         Rect { coord, size }
     }
 
@@ -660,19 +658,19 @@ impl Map3 {
             // don't split accidental corridors
             return;
         }
-        if bb.size.height() > 7 && bb.size.width() > 11 && rng.gen::<f64>() < 0.75 && depth > 0 {
+        if bb.size.height() > 7 && bb.size.width() > 11 && rng.random::<f64>() < 0.75 && depth > 0 {
             // corridor split
             let (split1, split2) = if bb.size.width() > (3 * bb.size.height() / 2) {
                 let x_min = bb.coord.x + 3;
                 let x_max = bb.bottom_right().x - 6;
-                let x = rng.gen_range(x_min..=x_max);
+                let x = rng.random_range(x_min..=x_max);
                 let split1 = block.split_vertical(x);
                 let split2 = split1.block2.split_vertical(x + 2);
                 (split1, split2)
             } else {
                 let y_min = bb.coord.y + 2;
                 let y_max = bb.bottom_right().y - 4;
-                let y = rng.gen_range(y_min..=y_max);
+                let y = rng.random_range(y_min..=y_max);
                 let split1 = block.split_horizontal(y);
                 let split2 = split1.block2.split_horizontal(y + 2);
                 (split1, split2)
@@ -694,12 +692,12 @@ impl Map3 {
             } = if bb.size.width() > (3 * bb.size.height() / 2) {
                 let x_min = bb.coord.x + 5;
                 let x_max = bb.bottom_right().x - 5;
-                let x = rng.gen_range(x_min..=x_max);
+                let x = rng.random_range(x_min..=x_max);
                 block.split_vertical(x)
             } else {
                 let y_min = bb.coord.y + 3;
                 let y_max = bb.bottom_right().y - 3;
-                let y = rng.gen_range(y_min..=y_max);
+                let y = rng.random_range(y_min..=y_max);
                 block.split_horizontal(y)
             };
             for coord in wall {
@@ -784,25 +782,25 @@ impl Tile4 {
 }
 
 struct Area {
-    boundary: HashSet<Coord>,
+    boundary: HashSet<ICoord>,
 }
 
 struct Adjacencies {
     areas: Vec<Area>,
-    shared_boundaries: Grid<HashSet<Coord>>,
+    shared_boundaries: Grid<HashSet<ICoord>>,
     neighbours: Vec<Vec<usize>>,
 }
 
 impl Adjacencies {
     fn shared_boundary(
-        shared_boundaries: &Grid<HashSet<Coord>>,
+        shared_boundaries: &Grid<HashSet<ICoord>>,
         a: usize,
         b: usize,
-    ) -> &HashSet<Coord> {
+    ) -> &HashSet<ICoord> {
         let coord = if a < b {
-            Coord::new(a as i32, b as i32)
+            ICoord::new(a as i32, b as i32)
         } else {
-            Coord::new(b as i32, a as i32)
+            ICoord::new(b as i32, a as i32)
         };
         shared_boundaries.get_checked(coord)
     }
@@ -813,7 +811,7 @@ impl Adjacencies {
 }
 
 struct DisconnectedRooms {
-    as_coords: HashSet<Coord>,
+    as_coords: HashSet<ICoord>,
 }
 
 impl DisconnectedRooms {
@@ -835,9 +833,9 @@ impl DisconnectedRooms {
 
     fn connect(&mut self, a: usize, b: usize) {
         let coord = if a < b {
-            Coord::new(a as i32, b as i32)
+            ICoord::new(a as i32, b as i32)
         } else {
-            Coord::new(b as i32, a as i32)
+            ICoord::new(b as i32, a as i32)
         };
         self.as_coords.remove(&coord);
     }
@@ -888,7 +886,7 @@ impl Map4 {
             if let Some(mut coord) = outside_coords.pop() {
                 for _ in 0..8 {
                     *self.grid.get_checked_mut(coord) = Tile4::Debris;
-                    let new_coord = coord + rng.gen::<Direction>().coord();
+                    let new_coord = coord + rng.random::<Direction>().coord();
                     if let Some(tile) = self.grid.get(new_coord) {
                         if tile.is_outside() {
                             coord = new_coord;
@@ -966,8 +964,9 @@ impl Map4 {
 
     fn adjacencies(&self) -> Adjacencies {
         let areas = self.areas();
-        let shared_boundaries =
-            Grid::new_fn(Size::new(areas.len() as u32, areas.len() as u32), |coord| {
+        let shared_boundaries = Grid::new_fn(
+            UCoord::new(areas.len() as u32, areas.len() as u32),
+            |coord| {
                 let a = coord.x as usize;
                 let b = coord.y as usize;
                 if a < b {
@@ -977,7 +976,8 @@ impl Map4 {
                 } else {
                     HashSet::new()
                 }
-            });
+            },
+        );
         let neighbours = (0..areas.len())
             .map(|i| {
                 (0..areas.len())
@@ -1003,12 +1003,12 @@ impl Map4 {
     fn add_doors<R: Rng>(&mut self, rng: &mut R) {
         let adjacencies = self.adjacencies();
         let mut disconnected_rooms = DisconnectedRooms::all_disconnected(&adjacencies);
-        let spanning_tree_start_index = rng.gen_range(0..adjacencies.areas.len());
+        let spanning_tree_start_index = rng.random_range(0..adjacencies.areas.len());
         let mut to_visit = vec![spanning_tree_start_index];
         let mut seen = HashSet::new();
         seen.insert(spanning_tree_start_index);
         while !to_visit.is_empty() {
-            let index_to_visit = to_visit.swap_remove(rng.gen_range(0..to_visit.len()));
+            let index_to_visit = to_visit.swap_remove(rng.random_range(0..to_visit.len()));
             for &neighbour_index in adjacencies.neighbours(index_to_visit) {
                 if seen.insert(neighbour_index) {
                     to_visit.push(neighbour_index);
@@ -1099,7 +1099,7 @@ impl Tile5 {
 
 pub struct Map5 {
     pub grid: Grid<Tile5>,
-    tentacle_coords: Vec<Coord>,
+    tentacle_coords: Vec<ICoord>,
 }
 
 pub struct TentacleSpec {
@@ -1132,14 +1132,14 @@ impl Map5 {
         rng: &mut R,
     ) {
         use vector::*;
-        let bottom_right = self.grid.size().to_coord().unwrap();
+        let bottom_right = self.grid.size().to_icoord();
         let corner = match corner {
             OrdinalDirection::NorthEast => bottom_right.set_y(0),
             OrdinalDirection::SouthEast => bottom_right,
             OrdinalDirection::SouthWest => bottom_right.set_x(0),
-            OrdinalDirection::NorthWest => Coord::new(0, 0),
+            OrdinalDirection::NorthWest => ICoord::new(0, 0),
         };
-        let towards_map_centre = Cartesian::from_coord(Coord::new(
+        let towards_map_centre = Cartesian::from_coord(ICoord::new(
             self.grid.width() as i32 / 2,
             self.grid.height() as i32 / 2,
         ))
@@ -1166,7 +1166,7 @@ impl Map5 {
             let base_angle_delta = ((t as f64 * tentacle_spec.spread)
                 / tentacle_spec.num_tentacles as f64)
                 - (tentacle_spec.spread / 2.0);
-            let bend = base_angle_delta + (0.2 * rng.gen::<f64>() - 0.1);
+            let bend = base_angle_delta + (0.2 * rng.random::<f64>() - 0.1);
             delta.angle.0 += bend;
             let mut vector = centre;
             let num_steps = 15;
@@ -1178,9 +1178,9 @@ impl Map5 {
                         let size = (num_steps - i) / 4 + 1;
                         let rect = Rect {
                             coord,
-                            size: Size::new(size, size),
+                            size: UCoord::new(size, size),
                         };
-                        delta.angle.0 += bend * 0.2 * rng.gen::<f64>();
+                        delta.angle.0 += bend * 0.2 * rng.random::<f64>();
                         for coord in rect.coord_iter() {
                             if let Some(tile) = self.grid.get_mut(coord) {
                                 *tile = Tile5::Tentacle;
@@ -1199,13 +1199,13 @@ impl Map5 {
         corner: OrdinalDirection,
         tile: Tile5,
         rng: &mut R,
-    ) -> Option<Coord> {
-        let bottom_right = self.grid.size().to_coord().unwrap();
+    ) -> Option<ICoord> {
+        let bottom_right = self.grid.size().to_icoord();
         let corner_coord = match corner {
             OrdinalDirection::NorthEast => bottom_right.set_y(0),
             OrdinalDirection::SouthEast => bottom_right,
             OrdinalDirection::SouthWest => bottom_right.set_x(0),
-            OrdinalDirection::NorthWest => Coord::new(0, 0),
+            OrdinalDirection::NorthWest => ICoord::new(0, 0),
         };
         let candidate_coords = self
             .grid
@@ -1289,7 +1289,7 @@ impl Map5 {
         }
     }
 
-    fn is_path_between(&self, start: Coord, end: Coord) -> bool {
+    fn is_path_between(&self, start: ICoord, end: ICoord) -> bool {
         if start == end {
             return true;
         }

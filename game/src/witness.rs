@@ -1,7 +1,7 @@
 use crate::{
     ActionError, Config, ExternalEvent, GameControlFlow, GameOverReason, Input, Menu as GameMenu,
 };
-use coord_2d::Coord;
+use coord_2d::ICoord;
 use direction::CardinalDirection;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -240,7 +240,7 @@ impl FireEquipped {
         Witness::Running(Running(self.0))
     }
 
-    pub fn commit(self, game: &mut Game, coord: Coord) -> (Witness, Result<(), ActionError>) {
+    pub fn commit(self, game: &mut Game, coord: ICoord) -> (Witness, Result<(), ActionError>) {
         game.witness_handle_input(Input::FireEquipped(coord), self.0)
     }
 }
@@ -250,7 +250,7 @@ impl FireBody {
         Witness::Running(Running(self.0))
     }
 
-    pub fn commit(self, game: &mut Game, coord: Coord) -> (Witness, Result<(), ActionError>) {
+    pub fn commit(self, game: &mut Game, coord: ICoord) -> (Witness, Result<(), ActionError>) {
         game.witness_handle_input(Input::FireBody(coord), self.0)
     }
 }

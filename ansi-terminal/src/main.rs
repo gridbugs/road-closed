@@ -62,7 +62,7 @@ fn main() {
     // possibility to replay with the same seed.
     let initial_rng_seed = match initial_rng_seed {
         InitialRngSeed::U64(seed) => seed,
-        InitialRngSeed::Random => rand::thread_rng().gen(),
+        InitialRngSeed::Random => rand::rng().random(),
     };
     println!("Initial RNG Seed: {}", initial_rng_seed);
     let context = Context::new().unwrap();

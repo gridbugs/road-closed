@@ -1,6 +1,6 @@
-pub use coord_2d::Coord;
+pub use coord_2d::ICoord;
 use rand::{
-    distributions::uniform::{SampleBorrow, SampleUniform, UniformFloat, UniformSampler},
+    distr::uniform::{Error, SampleBorrow, SampleUniform, UniformFloat, UniformSampler},
     Rng,
 };
 use rand_range::UniformLeftInclusiveRange;
@@ -19,14 +19,14 @@ pub struct Radial {
 }
 
 impl Cartesian {
-    pub fn from_coord(coord: Coord) -> Self {
+    pub fn from_coord(coord: ICoord) -> Self {
         Self {
             x: coord.x as f64,
             y: coord.y as f64,
         }
     }
-    pub fn to_coord_round_nearest(self) -> Coord {
-        Coord::new(self.x.round() as i32, self.y.round() as i32)
+    pub fn to_coord_round_nearest(self) -> ICoord {
+        ICoord::new(self.x.round() as i32, self.y.round() as i32)
     }
     pub fn to_radial(self) -> Radial {
         Radial {
@@ -77,7 +77,7 @@ impl Radians {
         }
     }
     pub fn random<R: Rng>(rng: &mut R) -> Self {
-        Self(rng.gen_range(-::std::f64::consts::PI..::std::f64::consts::PI))
+        Self(rng.random_range(-::std::f64::consts::PI..::std::f64::consts::PI))
     }
     pub fn from_degrees(degrees: f64) -> Self {
         Self((degrees * std::f64::consts::PI * 2.0) / 360.0)
@@ -90,16 +90,16 @@ pub struct UniformRadians {
 
 impl UniformSampler for UniformRadians {
     type X = Radians;
-    fn new<B1, B2>(low: B1, high: B2) -> Self
+    fn new<B1, B2>(low: B1, high: B2) -> Result<Self, Error>
     where
         B1: SampleBorrow<Self::X> + Sized,
         B2: SampleBorrow<Self::X> + Sized,
     {
-        Self {
-            inner: UniformFloat::<f64>::new(low.borrow().0, high.borrow().0),
-        }
+        Ok(Self {
+            inner: UniformFloat::<f64>::new(low.borrow().0, high.borrow().0)?,
+        })
     }
-    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
+    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Result<Self, Error>
     where
         B1: SampleBorrow<Self::X> + Sized,
         B2: SampleBorrow<Self::X> + Sized,

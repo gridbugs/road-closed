@@ -263,6 +263,6 @@ fn sig(channel: Channel, seed: u64) -> SigBoxed<f32> {
 }
 
 pub fn sig_stereo() -> Stereo<SigBoxed<f32>, SigBoxed<f32>> {
-    let rng_seed = StdRng::from_entropy().gen::<u64>();
+    let rng_seed = rand::rng().random::<u64>();
     Stereo::new_fn_channel(|ch| sig(ch, rng_seed))
 }

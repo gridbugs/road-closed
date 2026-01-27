@@ -1,10 +1,7 @@
 use crate::world::explosion;
 pub use crate::world::spatial::{Layer, Location};
 use entity_table::{declare_entity_module, Entity};
-use rand::{
-    seq::{IteratorRandom, SliceRandom},
-    Rng,
-};
+use rand::{prelude::IndexedRandom, seq::IteratorRandom, Rng};
 use rgb_int::Rgba32;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;

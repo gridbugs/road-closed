@@ -103,10 +103,10 @@ struct RngSeedSource {
 
 impl RngSeedSource {
     fn new(initial_rng_seed: InitialRngSeed) -> Self {
-        let mut seed_rng = Isaac64Rng::from_entropy();
+        let mut seed_rng = Isaac64Rng::from_rng(&mut rand::rng());
         let next_seed = match initial_rng_seed {
             InitialRngSeed::U64(seed) => seed,
-            InitialRngSeed::Random => seed_rng.gen(),
+            InitialRngSeed::Random => seed_rng.random(),
         };
         Self {
             next_seed,
@@ -116,7 +116,7 @@ impl RngSeedSource {
 
     fn next_seed(&mut self) -> u64 {
         let seed = self.next_seed;
-        self.next_seed = self.seed_rng.gen();
+        self.next_seed = self.seed_rng.random();
         #[cfg(feature = "print_stdout")]
         println!("RNG Seed: {}", seed);
         #[cfg(feature = "print_log")]
@@ -286,7 +286,7 @@ fn new_game(
 #[derive(Clone, Copy)]
 struct ScreenShake {
     countdown: u32,
-    offset: Coord,
+    offset: ICoord,
 }
 
 pub struct GameLoopData {
@@ -297,7 +297,7 @@ pub struct GameLoopData {
     rng_seed_source: RngSeedSource,
     config: Config,
     images: Images,
-    cursor: Option<Coord>,
+    cursor: Option<ICoord>,
     music_state: MusicState,
     screen_shake: Option<ScreenShake>,
     level_track_index: usize,
@@ -411,7 +411,7 @@ impl GameLoopData {
             let offset = self
                 .screen_shake
                 .map(|s| s.offset)
-                .unwrap_or(Coord::new(0, 0));
+                .unwrap_or(ICoord::new(0, 0));
             instance.render(ctx, fb, self.cursor, mode, offset);
             match mode {
                 Mode::Normal => {
@@ -523,13 +523,13 @@ impl GameLoopData {
                 for external_event in instance.game.take_external_events() {
                     if let ExternalEvent::Explosion(_) = external_event {
                         self.music_state.sfx_explosion();
-                        let mut rng = Isaac64Rng::from_entropy();
+                        let mut rng = Isaac64Rng::from_rng(&mut rand::rng());
                         let screen_shake = ScreenShake {
                             countdown: 2,
-                            offset: if rng.gen() {
-                                Coord::new(-1, 0)
+                            offset: if rng.random() {
+                                ICoord::new(-1, 0)
                             } else {
-                                Coord::new(1, 0)
+                                ICoord::new(1, 0)
                             },
                         };
                         self.screen_shake = Some(screen_shake);
@@ -543,7 +543,7 @@ impl GameLoopData {
     }
 }
 
-struct GameInstanceComponent(Option<witness::Running>);
+struct GameInstanceComponent;
 
 fn drop_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
     let choices = (0..game.inventory_size())
@@ -567,12 +567,6 @@ fn apply_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
         image: None,
     };
     running.menu(menu)
-}
-
-impl GameInstanceComponent {
-    fn new(running: witness::Running) -> Self {
-        Self(Some(running))
-    }
 }
 
 pub enum GameLoopState {
@@ -601,7 +595,7 @@ impl Component for GameInstanceComponent {
         }
     }
 
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> Size {
+    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
         ctx.bounding_box.size()
     }
 }
@@ -611,7 +605,7 @@ struct GameInstanceFireEquippedComponent(Option<FireEquipped>);
 struct Cancel;
 
 impl Component for GameInstanceFireEquippedComponent {
-    type Output = Option<(Result<Coord, Cancel>, FireEquipped)>;
+    type Output = Option<(Result<ICoord, Cancel>, FireEquipped)>;
     type State = GameLoopData;
 
     fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -640,11 +634,11 @@ impl Component for GameInstanceFireEquippedComponent {
                 }
                 if let Input::Keyboard(key) = input {
                     let delta = match key {
-                        KeyboardInput::Left => Coord::new(-1, 0),
-                        KeyboardInput::Right => Coord::new(1, 0),
-                        KeyboardInput::Up => Coord::new(0, -1),
-                        KeyboardInput::Down => Coord::new(0, 1),
-                        _ => Coord::new(0, 0),
+                        KeyboardInput::Left => ICoord::new(-1, 0),
+                        KeyboardInput::Right => ICoord::new(1, 0),
+                        KeyboardInput::Up => ICoord::new(0, -1),
+                        KeyboardInput::Down => ICoord::new(0, 1),
+                        _ => ICoord::new(0, 0),
                     };
                     if let Some(cursor) = state.cursor {
                         let new_cursor = cursor + delta;
@@ -662,7 +656,7 @@ impl Component for GameInstanceFireEquippedComponent {
         None
     }
 
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> Size {
+    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
         ctx.bounding_box.size()
     }
 }
@@ -670,7 +664,7 @@ impl Component for GameInstanceFireEquippedComponent {
 struct GameInstanceFireBodyComponent(Option<FireBody>);
 
 impl Component for GameInstanceFireBodyComponent {
-    type Output = Option<(Result<Coord, Cancel>, FireBody)>;
+    type Output = Option<(Result<ICoord, Cancel>, FireBody)>;
     type State = GameLoopData;
 
     fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -699,11 +693,11 @@ impl Component for GameInstanceFireBodyComponent {
                 }
                 if let Input::Keyboard(key) = input {
                     let delta = match key {
-                        KeyboardInput::Left => Coord::new(-1, 0),
-                        KeyboardInput::Right => Coord::new(1, 0),
-                        KeyboardInput::Up => Coord::new(0, -1),
-                        KeyboardInput::Down => Coord::new(0, 1),
-                        _ => Coord::new(0, 0),
+                        KeyboardInput::Left => ICoord::new(-1, 0),
+                        KeyboardInput::Right => ICoord::new(1, 0),
+                        KeyboardInput::Up => ICoord::new(0, -1),
+                        KeyboardInput::Down => ICoord::new(0, 1),
+                        _ => ICoord::new(0, 0),
                     };
                     if let Some(cursor) = state.cursor {
                         let new_cursor = cursor + delta;
@@ -721,7 +715,7 @@ impl Component for GameInstanceFireBodyComponent {
         None
     }
 
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> Size {
+    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
         ctx.bounding_box.size()
     }
 }
@@ -761,7 +755,7 @@ fn title_decorate<T: 'static>(cf: AppCF<T>) -> AppCF<T> {
                 ),
         )]
     };
-    cf.overlay(decoration.add_offset(Coord::new(31, 10)), 0)
+    cf.overlay(decoration.add_offset(ICoord::new(31, 10)), 0)
 }
 
 fn main_menu() -> AppCF<MainMenuEntry> {
@@ -800,11 +794,11 @@ struct MainMenuBackground {
 
 impl MainMenuBackground {
     fn new() -> Self {
-        let mut rng = Isaac64Rng::from_entropy();
-        let city_heights = (0..100).map(|_| rng.gen_range(3..8)).collect();
+        let mut rng = Isaac64Rng::from_rng(&mut rand::rng());
+        let city_heights = (0..100).map(|_| rng.random_range(3..8)).collect();
         Self {
             count: 0,
-            rng_seed: rng.gen(),
+            rng_seed: rng.random(),
             city_heights,
         }
     }
@@ -820,7 +814,7 @@ impl Component for MainMenuBackground {
         let mut star_brightness_rng = Isaac64Rng::seed_from_u64(self.count / 30);
         for i in 0..15 {
             for j in 0..(screen_size.width() as i32) {
-                let coord = Coord::new(j, i);
+                let coord = ICoord::new(j, i);
                 let render_cell = RenderCell {
                     character: None,
                     style: Style::default()
@@ -831,7 +825,7 @@ impl Component for MainMenuBackground {
         }
         for i in 15..30 {
             for j in 0..(screen_size.width() as i32) {
-                let coord = Coord::new(j, i);
+                let coord = ICoord::new(j, i);
                 let render_cell = RenderCell {
                     character: None,
                     style: Style::default()
@@ -841,15 +835,17 @@ impl Component for MainMenuBackground {
             }
         }
         for _ in 0..20 {
-            let coord = Coord {
-                x: star_rng.gen_range(0..screen_size.width() as i32),
-                y: star_rng.gen_range(0..14),
+            let coord = ICoord {
+                x: star_rng.random_range(0..screen_size.width() as i32),
+                y: star_rng.random_range(0..14),
             };
             let star_render_cell = RenderCell {
                 character: Some('.'),
                 style: Style::default()
                     .with_bold(true)
-                    .with_foreground(Rgba32::new_grey(star_brightness_rng.gen_range(127..=255))),
+                    .with_foreground(Rgba32::new_grey(
+                        star_brightness_rng.random_range(127..=255),
+                    )),
             };
             fb.set_cell_relative_to_ctx(ctx, coord, 0, star_render_cell);
         }
@@ -857,7 +853,7 @@ impl Component for MainMenuBackground {
             let city_height = self.city_heights
                 [((i as usize + (self.count as usize / 30)) / 4) % self.city_heights.len()];
             for j in 0..city_height {
-                let coord = Coord {
+                let coord = ICoord {
                     x: i as i32,
                     y: 14 - j as i32,
                 };
@@ -871,7 +867,7 @@ impl Component for MainMenuBackground {
         let stride = 10;
         let virtual_width = 20;
         let offset = ((virtual_width * stride) / 2) - (screen_size.width() / 2) as i32;
-        let end = Coord::new(screen_size.width() as i32 / 2, 5);
+        let end = ICoord::new(screen_size.width() as i32 / 2, 5);
         let line_render_cell = |y| RenderCell {
             character: None,
             style: Style::default().with_background(
@@ -885,7 +881,7 @@ impl Component for MainMenuBackground {
         };
         for i in 0..virtual_width {
             let x = (i * stride) - offset - ((self.count / 5) % stride as u64) as i32;
-            let start = Coord::new(x, screen_size.height() as i32);
+            let start = ICoord::new(x, screen_size.height() as i32);
             for coord in line_2d::coords_between(start, end) {
                 if coord.x >= 0 && coord.x <= screen_size.width() as i32 {
                     fb.set_cell_relative_to_ctx(ctx, coord, 0, line_render_cell(coord.y));
@@ -896,9 +892,10 @@ impl Component for MainMenuBackground {
             }
         }
         let mut hline = |y| {
-            for coord in
-                line_2d::coords_between(Coord::new(0, y), Coord::new(screen_size.width() as i32, y))
-            {
+            for coord in line_2d::coords_between(
+                ICoord::new(0, y),
+                ICoord::new(screen_size.width() as i32, y),
+            ) {
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, line_render_cell(y));
             }
         };
@@ -913,11 +910,11 @@ impl Component for MainMenuBackground {
         };
         let heart_width = 30;
         let heart_left = screen_size.width() as i32 / 2 - heart_width / 2;
-        let heart_image_offset = Coord::new(12, 3);
+        let heart_image_offset = ICoord::new(12, 3);
         for i in 0..20 {
             for j in 0..heart_width {
-                let coord = Coord::new(j, i);
-                let screen_coord = Coord::new(j + heart_left, i);
+                let coord = ICoord::new(j, i);
+                let screen_coord = ICoord::new(j + heart_left, i);
                 let heart_cell = heart_image.grid.get_checked(coord + heart_image_offset);
                 if heart_cell.foreground().unwrap().r == 255 {
                     continue;
@@ -942,7 +939,7 @@ impl Component for MainMenuBackground {
             self.count += 1;
         }
     }
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> Size {
+    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
         ctx.bounding_box.size()
     }
 }
@@ -1048,8 +1045,8 @@ impl Component for MessageLog {
         None
     }
 
-    fn size(&self, _state: &Self::State, _ctx: Ctx) -> Size {
-        Size::new(60, 25)
+    fn size(&self, _state: &Self::State, _ctx: Ctx) -> UCoord {
+        UCoord::new(60, 25)
     }
 }
 
@@ -1069,7 +1066,7 @@ fn message_log(reason: MessageLogReason) -> AppCF<()> {
 
 struct ViewOrgans;
 impl ViewOrgans {
-    const SIZE: Size = Size::new_u16(70, 14);
+    const SIZE: UCoord = UCoord::new_u16(70, 14);
 }
 impl Component for ViewOrgans {
     type Output = Option<()>;
@@ -1117,7 +1114,7 @@ impl Component for ViewOrgans {
         }
     }
 
-    fn size(&self, _state: &Self::State, _ctx: Ctx) -> Size {
+    fn size(&self, _state: &Self::State, _ctx: Ctx) -> UCoord {
         Self::SIZE
     }
 }
@@ -1130,7 +1127,7 @@ fn main_menu_loop() -> AppCF<MainMenuOutput> {
     use MainMenuEntry::*;
     title_decorate(
         main_menu()
-            .add_offset(Coord::new(32, 12))
+            .add_offset(ICoord::new(32, 12))
             .overlay(MainMenuBackground::new(), 1),
     )
     .repeat_unit(move |entry| match entry {
@@ -1232,8 +1229,8 @@ fn pause(running: witness::Running) -> AppCF<PauseOutput> {
     menu_style(pause_menu_loop(running))
 }
 
-fn game_instance_component(running: witness::Running) -> AppCF<GameLoopState> {
-    cf(GameInstanceComponent::new(running)).some().no_peek()
+fn game_instance_component(_running: witness::Running) -> AppCF<GameLoopState> {
+    cf(GameInstanceComponent).some().no_peek()
 }
 
 fn fire_equipped(fire_equipped: FireEquipped) -> AppCF<Witness> {
@@ -1500,7 +1497,7 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
                 .map(|()| GameLoopState::Playing(running.into_witness()))
                 .continue_(),
         })
-        .bound_size(Size::new_u16(80, 30))
+        .bound_size(UCoord::new_u16(80, 30))
         .on_each_tick_with_state(|state| state.music_state.tick())
         .on_exit_with_state(|state| state.try_save_instance_cheat())
     })

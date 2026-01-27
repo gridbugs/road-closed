@@ -1,5 +1,5 @@
 use rand::{
-    distributions::{
+    distr::{
         uniform::{SampleUniform, Uniform},
         Distribution,
     },
@@ -15,7 +15,9 @@ pub struct UniformInclusiveRange<T> {
 
 impl<T: SampleUniform> UniformInclusiveRange<T> {
     pub fn choose<R: Rng>(&self, rng: &mut R) -> T {
-        Uniform::<T>::new_inclusive(&self.low, &self.high).sample(rng)
+        Uniform::<T>::new_inclusive(&self.low, &self.high)
+            .unwrap()
+            .sample(rng)
     }
 }
 
@@ -27,6 +29,8 @@ pub struct UniformLeftInclusiveRange<T> {
 
 impl<T: SampleUniform> UniformLeftInclusiveRange<T> {
     pub fn choose<R: Rng>(&self, rng: &mut R) -> T {
-        Uniform::<T>::new(&self.low, &self.high).sample(rng)
+        Uniform::<T>::new(&self.low, &self.high)
+            .unwrap()
+            .sample(rng)
     }
 }

@@ -1,5 +1,5 @@
 use crate::{realtime, world::World, Entity, ExternalEvent, Message};
-use coord_2d::Coord;
+use coord_2d::ICoord;
 use direction::Direction;
 use line_2d::LineSegment;
 use rand::Rng;
@@ -55,13 +55,13 @@ fn apply_indirect_hit<R: Rng>(
 
 fn apply_direct_hit<R: Rng>(
     world: &mut World,
-    explosion_coord: Coord,
+    explosion_coord: ICoord,
     character_entity: Entity,
     rng: &mut R,
     external_events: &mut Vec<ExternalEvent>,
     message_log: &mut Vec<Message>,
 ) {
-    let mut solid_neighbour_vector = Coord::new(0, 0);
+    let mut solid_neighbour_vector = ICoord::new(0, 0);
     for direction in Direction::all() {
         let neighbour_coord = explosion_coord + direction.coord();
         if let Some(spatial_cell) = world.spatial_table.layers_at(neighbour_coord) {
@@ -91,16 +91,16 @@ fn apply_direct_hit<R: Rng>(
 }
 
 fn is_in_explosion_range(
-    explosion_coord: Coord,
+    explosion_coord: ICoord,
     mechanics: &spec::Mechanics,
-    coord: Coord,
+    coord: ICoord,
 ) -> bool {
     explosion_coord.distance2(coord) <= mechanics.range.pow(2)
 }
 
 fn apply_mechanics<R: Rng>(
     world: &mut World,
-    explosion_coord: Coord,
+    explosion_coord: ICoord,
     mechanics: &spec::Mechanics,
     rng: &mut R,
     external_events: &mut Vec<ExternalEvent>,
@@ -144,7 +144,7 @@ fn apply_mechanics<R: Rng>(
 
 pub fn explode<R: Rng>(
     world: &mut World,
-    coord: Coord,
+    coord: ICoord,
     explosion: spec::Explosion,
     external_events: &mut Vec<ExternalEvent>,
     message_log: &mut Vec<Message>,

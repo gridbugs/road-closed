@@ -91,16 +91,16 @@ fn arp_shape(trig: impl FrameSigT<Item = bool>) -> FrameSig<impl FrameSigT<Item 
         indices: Vec<Option<usize>>,
     }
     let mut state = State {
-        rng: StdRng::from_entropy(),
+        rng: StdRng::from_rng(&mut rand::rng()),
         indices: vec![Some(0); 8],
     };
     const MAX_INDEX: usize = 6;
     let trig = FrameSig(trig);
     trig.divide(16).map(move |trig| {
         if trig {
-            let index_to_change = state.rng.gen::<usize>() % state.indices.len();
-            let value = if state.indices.len() <= 1 || state.rng.gen::<f64>() < 0.9 {
-                Some(state.rng.gen::<usize>() % MAX_INDEX)
+            let index_to_change = state.rng.random::<u32>() as usize % state.indices.len();
+            let value = if state.indices.len() <= 1 || state.rng.random::<f64>() < 0.9 {
+                Some(state.rng.random::<u32>() as usize % MAX_INDEX)
             } else {
                 None
             };

@@ -1,5 +1,5 @@
 use app::{app, AppArgs, AppStorage, InitialRngSeed};
-use chargrid_web::{Context, LoopMethod, Size};
+use chargrid_web::{Context, LoopMethod, UCoord};
 use general_storage_static::StaticStorage;
 use general_storage_web::LocalStorage;
 use wasm_bindgen::prelude::*;
@@ -15,7 +15,7 @@ pub fn run() -> Result<(), JsValue> {
     let mut storage = StaticStorage::new(LocalStorage::new());
     let _ = storage.remove(CONFIG_KEY);
     let _ = storage.remove(CONTROLS_KEY);
-    let context = Context::new(Size::new(80, 30), "content");
+    let context = Context::new(UCoord::new(80, 30), "content");
     let args = AppArgs {
         storage: AppStorage {
             handle: storage,

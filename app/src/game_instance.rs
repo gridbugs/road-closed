@@ -83,7 +83,7 @@ fn render_meter(meter: Meter, colour: Rgb24, ctx: Ctx, fb: &mut FrameBuffer) {
         filled_width
     };
     for i in 0..width {
-        let coord = Coord::new(i as i32, 0);
+        let coord = ICoord::new(i as i32, 0);
         let alpha = if i < filled_width as usize { 255 } else { 63 };
         let rc = RenderCell::default().with_background(colour.to_rgba32(alpha));
         fb.set_cell_relative_to_ctx(ctx, coord, 0, rc);
@@ -100,7 +100,7 @@ fn render_meter_disabled(ctx: Ctx, fb: &mut FrameBuffer) {
         .with_bold(true)
         .with_foreground(Rgb24::new_grey(255).to_rgba32(187));
     for i in 0..width {
-        let coord = Coord::new(i as i32, 0);
+        let coord = ICoord::new(i as i32, 0);
         let rc = RenderCell::default().with_background(Rgba32::new_grey(63));
         fb.set_cell_relative_to_ctx(ctx, coord, 0, rc);
     }
@@ -550,8 +550,8 @@ impl GameInstance {
     }
 
     pub fn render_game(&self, ctx: Ctx, fb: &mut FrameBuffer) {
-        let centre_coord_delta = Coord::new(0, 0);
-        for coord in ctx.bounding_box.size().coord_iter_row_major() {
+        let centre_coord_delta = ICoord::new(0, 0);
+        for coord in ctx.bounding_box.size().icoord_iter_row_major() {
             let cell = self
                 .game
                 .inner_ref()
@@ -587,8 +587,9 @@ impl GameInstance {
                             if let Some(colour_hint) = visible_entity.colour_hint {
                                 render_cell = render_cell.with_foreground(colour_hint);
                             }
+                            let tint = ctx.compose_tint(&tint);
                             fb.set_cell_relative_to_ctx(
-                                ctx_tint!(ctx, tint),
+                                ctx.with_tint(&tint),
                                 coord,
                                 depth,
                                 render_cell,
@@ -653,7 +654,7 @@ impl GameInstance {
         }
     }
 
-    fn render_description(&self, ctx: Ctx, fb: &mut FrameBuffer, cursor: Option<Coord>) {
+    fn render_description(&self, ctx: Ctx, fb: &mut FrameBuffer, cursor: Option<ICoord>) {
         use text::*;
         let (cursor, player) = if let Some(cursor) = cursor {
             if self.game.inner_ref().world_size().is_valid(cursor) {
@@ -912,9 +913,9 @@ impl GameInstance {
         &self,
         ctx: Ctx,
         fb: &mut FrameBuffer,
-        cursor: Option<Coord>,
+        cursor: Option<ICoord>,
         mode: Mode,
-        offset: Coord,
+        offset: ICoord,
     ) {
         use text::*;
         self.render_game(ctx.add_offset(offset), fb);
@@ -935,7 +936,7 @@ impl GameInstance {
         {
             let render_cell = box_render_cell.with_character('║');
             for i in 0..ctx.bounding_box.size().height() {
-                let coord = Coord::new(game_size.width() as i32, i as i32);
+                let coord = ICoord::new(game_size.width() as i32, i as i32);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
         }
@@ -943,7 +944,7 @@ impl GameInstance {
         {
             let render_cell = box_render_cell.with_character('═');
             for i in 0..game_size.width() {
-                let coord = Coord::new(i as i32, game_size.height() as i32);
+                let coord = ICoord::new(i as i32, game_size.height() as i32);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
             Text::new(vec![
@@ -968,7 +969,7 @@ impl GameInstance {
         }
         fb.set_cell_relative_to_ctx(
             ctx,
-            game_size.to_coord().unwrap(),
+            game_size.to_icoord(),
             0,
             box_render_cell.with_character('╣'),
         );
@@ -977,7 +978,7 @@ impl GameInstance {
             let offset_y = 21;
             let render_cell = box_render_cell.with_character('═');
             for i in (game_size.width() + 1)..ctx.bounding_box.size().width() {
-                let coord = Coord::new(i as i32, offset_y);
+                let coord = ICoord::new(i as i32, offset_y);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
             Text::new(vec![
@@ -1016,12 +1017,12 @@ impl GameInstance {
             .render(&(), ctx.add_xy(game_size.width() as i32 + 1, offset_y), fb);
             fb.set_cell_relative_to_ctx(
                 ctx,
-                game_size.to_coord().unwrap().set_y(offset_y),
+                game_size.to_icoord().set_y(offset_y),
                 0,
                 box_render_cell.with_character('╠'),
             );
             self.render_description(
-                ctx.add_offset(game_size.to_coord().unwrap().set_y(offset_y + 1))
+                ctx.add_offset(game_size.to_icoord().set_y(offset_y + 1))
                     .add_xy(2, 1),
                 fb,
                 cursor,
@@ -1032,7 +1033,7 @@ impl GameInstance {
             let offset_y = 16;
             let render_cell = box_render_cell.with_character('═');
             for i in (game_size.width() + 1)..ctx.bounding_box.size().width() {
-                let coord = Coord::new(i as i32, offset_y);
+                let coord = ICoord::new(i as i32, offset_y);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
             Text::new(vec![
@@ -1064,12 +1065,12 @@ impl GameInstance {
             .render(&(), ctx.add_xy(game_size.width() as i32 + 1, offset_y), fb);
             fb.set_cell_relative_to_ctx(
                 ctx,
-                game_size.to_coord().unwrap().set_y(offset_y),
+                game_size.to_icoord().set_y(offset_y),
                 0,
                 box_render_cell.with_character('╠'),
             );
             self.render_mode(
-                ctx.add_offset(game_size.to_coord().unwrap().set_y(offset_y + 1))
+                ctx.add_offset(game_size.to_icoord().set_y(offset_y + 1))
                     .add_xy(2, 1),
                 fb,
                 mode,
@@ -1080,7 +1081,7 @@ impl GameInstance {
             let offset_y = 6;
             let render_cell = box_render_cell.with_character('═');
             for i in (game_size.width() + 1)..ctx.bounding_box.size().width() {
-                let coord = Coord::new(i as i32, offset_y);
+                let coord = ICoord::new(i as i32, offset_y);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
             Text::new(vec![
@@ -1100,12 +1101,12 @@ impl GameInstance {
             .render(&(), ctx.add_xy(game_size.width() as i32 + 1, offset_y), fb);
             fb.set_cell_relative_to_ctx(
                 ctx,
-                game_size.to_coord().unwrap().set_y(offset_y),
+                game_size.to_icoord().set_y(offset_y),
                 0,
                 box_render_cell.with_character('╠'),
             );
             self.render_stats(
-                ctx.add_offset(game_size.to_coord().unwrap().set_y(offset_y + 1))
+                ctx.add_offset(game_size.to_icoord().set_y(offset_y + 1))
                     .add_xy(2, 1),
                 fb,
             );
@@ -1114,7 +1115,7 @@ impl GameInstance {
         {
             let offset_y = 0;
             self.render_info(
-                ctx.add_offset(game_size.to_coord().unwrap().set_y(offset_y + 1))
+                ctx.add_offset(game_size.to_icoord().set_y(offset_y + 1))
                     .add_xy(2, 0),
                 fb,
             );

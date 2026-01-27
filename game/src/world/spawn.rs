@@ -3,12 +3,12 @@ use crate::{
     world::{data::*, explosion, World},
     Entity,
 };
-use coord_2d::Coord;
+use coord_2d::ICoord;
 use direction::Direction;
 use entity_table::entity_data;
-use rand::{seq::SliceRandom, Rng};
+use rand::{prelude::IndexedRandom, Rng};
 use rgb_int::Rgb24;
-use visible_area_detection::{vision_distance, Light, Rational};
+use visible_area_detection::{vision_distance, Diminish, Light};
 
 fn player_starting_organs() -> Organs {
     let mut ret = Organs::new(crate::MAX_ORGANS);
@@ -72,7 +72,7 @@ fn player_starting_organs() -> Organs {
 
 fn random_organ_traits<R: Rng>(rng: &mut R) -> OrganTraits {
     let mut traits = OrganTraits::none();
-    if rng.gen::<f64>() < 0.66 {
+    if rng.random::<f64>() < 0.66 {
         *traits.get_mut(OrganTrait::choose(rng)) = true;
     }
     traits
@@ -103,10 +103,7 @@ pub fn make_player() -> EntityData {
         light: Some(Light {
             colour: Rgb24::new(150, 150, 150),
             vision_distance: vision_distance::Circle::new_squared(200),
-            diminish: Rational {
-                numerator: 1,
-                denominator: 100,
-            },
+            diminish: Diminish::default().with_height(100.),
         }),
         health: Some(Meter::new(20, 20)),
         oxygen: Some(Meter::new(20, 20)),
@@ -144,7 +141,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_wall(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_wall(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -157,7 +154,7 @@ impl World {
         )
     }
 
-    pub fn spawn_debris(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_debris(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -169,7 +166,7 @@ impl World {
         )
     }
 
-    pub fn spawn_debris_burning<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_debris_burning<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         let entity = self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -182,10 +179,7 @@ impl World {
                 light: Light {
                     colour: Rgb24::new(255, 87, 0),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 40,
-                    },
+                    diminish: Diminish::default().with_height(40.),
                 },
             },
         );
@@ -237,7 +231,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_tentacle(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_tentacle(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -249,7 +243,7 @@ impl World {
         )
     }
 
-    pub fn spawn_tentacle_glow(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_tentacle_glow(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -261,16 +255,13 @@ impl World {
                 light: Light {
                     colour: Rgb24::new(0, 255, 255),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 200,
-                    },
+                    diminish: Diminish::default().with_height(200.),
                 },
             },
         )
     }
 
-    pub fn spawn_floor(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_floor(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
             entity_data! {
@@ -279,7 +270,7 @@ impl World {
         )
     }
 
-    pub fn spawn_street(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_street(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
             entity_data! {
@@ -288,7 +279,7 @@ impl World {
         )
     }
 
-    pub fn spawn_alley(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_alley(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
             entity_data! {
@@ -297,7 +288,7 @@ impl World {
         )
     }
 
-    pub fn spawn_footpath(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_footpath(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
             entity_data! {
@@ -306,7 +297,7 @@ impl World {
         )
     }
 
-    pub fn spawn_door(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_door(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -320,7 +311,7 @@ impl World {
         )
     }
 
-    pub fn spawn_stairs_down(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_stairs_down(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -329,16 +320,13 @@ impl World {
                 light: Light {
                     colour: Rgb24::new(0, 255, 255),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 40,
-                    },
+                    diminish: Diminish::default().with_height(40.),
                 },
             },
         )
     }
 
-    pub fn spawn_stairs_up(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_stairs_up(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -347,17 +335,13 @@ impl World {
                 light: Light {
                     colour: Rgb24::new(0, 255, 255),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 40,
-                    },
-
+                    diminish: Diminish::default().with_height(40.),
                 },
             },
         )
     }
 
-    pub fn spawn_exit(&mut self, coord: Coord) -> Entity {
+    pub fn spawn_exit(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
@@ -366,11 +350,7 @@ impl World {
                 light: Light {
                     colour: Rgb24::new(0, 0, 255),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 40,
-                    },
-
+                    diminish: Diminish::default().with_height(40.),
                 },
             },
         )
@@ -378,13 +358,13 @@ impl World {
 
     pub fn spawn_bullet<R: Rng>(
         &mut self,
-        start: Coord,
-        target: Coord,
+        start: ICoord,
+        target: ICoord,
         projectile_damage: ProjectileDamage,
         rng: &mut R,
     ) -> Entity {
         let target = if target == start {
-            start + rng.gen::<Direction>().coord()
+            start + rng.random::<Direction>().coord()
         } else {
             target
         };
@@ -459,7 +439,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_rocket<R: Rng>(&mut self, start: Coord, target: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_rocket<R: Rng>(&mut self, start: ICoord, target: ICoord, rng: &mut R) -> Entity {
         let entity = self.entity_allocator.alloc();
         self.spatial_table
             .update(
@@ -549,10 +529,7 @@ impl World {
             Light {
                 colour: Rgb24::new(255, 187, 63),
                 vision_distance: vision_distance::Circle::new_squared(90),
-                diminish: Rational {
-                    numerator: 1,
-                    denominator: 10,
-                },
+                diminish: Diminish::default().with_height(10.),
             },
         );
 
@@ -561,7 +538,7 @@ impl World {
 
     pub fn spawn_explosion_emitter<R: Rng>(
         &mut self,
-        coord: Coord,
+        coord: ICoord,
         spec: &explosion::spec::ParticleEmitter,
         rng: &mut R,
     ) -> Entity {
@@ -629,10 +606,7 @@ impl World {
             Light {
                 colour: Rgb24::new(255, 255, 63),
                 vision_distance: vision_distance::Circle::new_squared(900),
-                diminish: Rational {
-                    numerator: 1,
-                    denominator: 1000,
-                },
+                diminish: Diminish::default().with_height(1000.),
             },
         );
         self.realtime_components.light_colour_fade.insert(
@@ -646,8 +620,8 @@ impl World {
         emitter_entity
     }
 
-    pub fn spawn_money<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
-        let amount = rng.gen_range(10..=20);
+    pub fn spawn_money<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
+        let amount = rng.random_range(10..=20);
         self.spawn_entity(
             (coord, Layer::Item),
             entity_data! {
@@ -658,7 +632,7 @@ impl World {
         )
     }
 
-    pub fn spawn_item(&mut self, coord: Coord, item: Item) -> Entity {
+    pub fn spawn_item(&mut self, coord: ICoord, item: Item) -> Entity {
         let mut data = entity_data! {
             tile: Tile::Item(item),
             item,
@@ -680,7 +654,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_zombie<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_zombie<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -710,7 +684,7 @@ impl World {
         )
     }
 
-    pub fn spawn_climber<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_climber<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -734,7 +708,7 @@ impl World {
         )
     }
 
-    pub fn spawn_trespasser<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_trespasser<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -757,7 +731,7 @@ impl World {
         )
     }
 
-    pub fn spawn_boomer<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_boomer<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -782,7 +756,7 @@ impl World {
         )
     }
 
-    pub fn spawn_snatcher<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_snatcher<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -808,7 +782,7 @@ impl World {
         )
     }
 
-    pub fn spawn_poisoner<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_poisoner<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -832,7 +806,7 @@ impl World {
         )
     }
 
-    pub fn spawn_divider<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_divider<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -856,7 +830,7 @@ impl World {
         )
     }
 
-    pub fn spawn_glower<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_glower<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -879,17 +853,14 @@ impl World {
                 light: Light {
                     colour: Rgb24::hex(0x009973),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 100,
-                    },
+                    diminish: Diminish::default().with_height(100.),
                 },
                 slow: 2,
             },
         )
     }
 
-    pub fn spawn_venter<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_venter<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         let entity = self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -939,7 +910,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_corruptor<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_corruptor<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         let entity = self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -972,10 +943,7 @@ impl World {
               light: Light {
                     colour: Rgb24::hex(0xf00ff),
                     vision_distance: vision_distance::Circle::new_squared(200),
-                    diminish: Rational {
-                        numerator: 1,
-                        denominator: 100,
-                    },
+                    diminish: Diminish::default().with_height(100.),
                 },
                 realtime: (),
                 boss: (),
@@ -1008,7 +976,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_gun_store<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_gun_store<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         let item_pool = [
             Item::Pistol,
             Item::PistolAmmo,
@@ -1049,7 +1017,7 @@ impl World {
         )
     }
 
-    pub fn spawn_item_store<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn spawn_item_store<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         let item_pool = [
             Item::Stimpack,
             Item::Antidote,
@@ -1093,7 +1061,7 @@ impl World {
 
     pub fn spawn_organ_clinic<R: Rng>(
         &mut self,
-        coord: Coord,
+        coord: ICoord,
         level: usize,
         rng: &mut R,
     ) -> Entity {
@@ -1151,7 +1119,7 @@ impl World {
         }
         for _ in 0..6 {
             let type_ = *pool.choose(rng).unwrap();
-            let cybernetic = rng.gen::<f64>() < cybernetic_chance;
+            let cybernetic = rng.random::<f64>() < cybernetic_chance;
             simple_organs.push(Organ {
                 type_,
                 cybernetic,
@@ -1161,7 +1129,7 @@ impl World {
         }
         for _ in 0..3 {
             let type_ = *pool.choose(rng).unwrap();
-            let cybernetic = rng.gen::<f64>() < cybernetic_chance;
+            let cybernetic = rng.random::<f64>() < cybernetic_chance;
             let mut traits = OrganTraits::none();
             let random_trait = traits.get_mut(OrganTrait::choose(rng));
             *random_trait = true;
@@ -1174,7 +1142,7 @@ impl World {
         }
         for _ in 0..3 {
             let type_ = *pool.choose(rng).unwrap();
-            let cybernetic = rng.gen::<f64>() < cybernetic_chance;
+            let cybernetic = rng.random::<f64>() < cybernetic_chance;
             let mut traits = OrganTraits::none();
             let random_trait = traits.get_mut(OrganTrait::choose(rng));
             *random_trait = true;
@@ -1210,7 +1178,7 @@ impl World {
         )
     }
 
-    pub fn _spawn_organ_trader<R: Rng>(&mut self, coord: Coord, rng: &mut R) -> Entity {
+    pub fn _spawn_organ_trader<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {

@@ -132,7 +132,7 @@ impl spec::ParticleEmitter {
                 total: d,
                 elapsed: Duration::from_millis(0),
             }),
-            rng: Isaac64Rng::from_rng(rng).unwrap(),
+            rng: Isaac64Rng::from_rng(rng),
         }
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 pub mod spec {
-    pub use coord_2d::Coord;
+    pub use coord_2d::ICoord;
     pub use std::time::Duration;
 
     pub enum Repeat {
@@ -18,7 +18,7 @@ pub mod spec {
     }
 
     pub struct Movement {
-        pub path: Coord,
+        pub path: ICoord,
         pub repeat: Repeat,
         pub cardinal_step_duration: Duration,
     }

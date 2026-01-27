@@ -6,7 +6,7 @@ use crate::{
     },
     ExternalEvent, Message, World,
 };
-use coord_2d::Coord;
+use coord_2d::ICoord;
 use direction::Direction;
 use entity_table::Entity;
 use rand::{seq::SliceRandom, Rng};
@@ -90,7 +90,7 @@ impl World {
     ) {
         self.damage_character(
             entity_to_damage,
-            rng.gen_range(projectile_damage.hit_points),
+            rng.random_range(projectile_damage.hit_points),
             rng,
             external_events,
             message_log,
@@ -412,7 +412,7 @@ impl World {
         self.components.hands.get_mut(player).unwrap().left = Hand::Holding(pistol);
     }
 
-    pub fn make_floor_bloody(&mut self, coord: Coord) {
+    pub fn make_floor_bloody(&mut self, coord: ICoord) {
         if let Some(Layers {
             floor: Some(floor_entity),
             ..
@@ -432,7 +432,7 @@ impl World {
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
     ) {
-        let mut damage = rng.gen_range(1..=2);
+        let mut damage = rng.random_range(1..=2);
         for organ in self.active_player_organs() {
             if organ.type_ == OrganType::Claw {
                 let mut mult = 1;
@@ -442,7 +442,7 @@ impl World {
                 if organ.traits.damaged {
                     mult /= 2;
                 }
-                damage += rng.gen_range((2 * mult)..=(4 * mult));
+                damage += rng.random_range((2 * mult)..=(4 * mult));
             }
         }
         external_events.push(ExternalEvent::Melee);
@@ -458,7 +458,7 @@ impl World {
         let organs = self.components.organs.get(player_entity).unwrap().clone();
         for (i, organ) in organs.organs().iter().enumerate() {
             if let Some(organ) = organ {
-                if organ.traits.radioactitve && rng.gen::<f64>() < 0.5 {
+                if organ.traits.radioactitve && rng.random::<f64>() < 0.5 {
                     message_log.push(Message::IrradiatedByOrgan(*organ));
                     self.components
                         .radiation
@@ -466,7 +466,7 @@ impl World {
                         .unwrap()
                         .increase(1);
                 }
-                if organ.traits.prolific && rng.gen::<f64>() < 0.02 {
+                if organ.traits.prolific && rng.random::<f64>() < 0.02 {
                     if let Some(slot) = self
                         .components
                         .organs
@@ -478,7 +478,7 @@ impl World {
                         *slot = Some(*organ);
                     }
                 }
-                if organ.traits.transient && rng.gen::<f64>() < 0.01 {
+                if organ.traits.transient && rng.random::<f64>() < 0.01 {
                     message_log.push(Message::OrganDisappear(*organ));
                     self.components
                         .organs
@@ -527,7 +527,7 @@ impl World {
         if radiation.is_full() {
             radiation.clear();
             let organs = self.components.organs.get_mut(player_entity).unwrap();
-            if organs.num_free_slots() > 0 && rng.gen::<f64>() < 0.1 {
+            if organs.num_free_slots() > 0 && rng.random::<f64>() < 0.1 {
                 message_log.push(Message::GrowTumor);
                 *organs.first_free_slot().unwrap() = Some(Organ {
                     type_: OrganType::Tumour,
@@ -566,14 +566,14 @@ impl World {
             .get_mut(player_entity)
             .unwrap()
             .decrease(1);
-        if rng.gen::<f64>() < 0.3 {
+        if rng.random::<f64>() < 0.3 {
             self.components
                 .power
                 .get_mut(player_entity)
                 .unwrap()
                 .decrease(1);
         }
-        if rng.gen::<f64>() < 0.1 {
+        if rng.random::<f64>() < 0.1 {
             self.components
                 .radiation
                 .get_mut(player_entity)
@@ -616,7 +616,7 @@ impl World {
                     if organ.traits.damaged {
                         chance *= 0.5;
                     }
-                    if rng.gen::<f64>() < chance {
+                    if rng.random::<f64>() < chance {
                         self.components
                             .poison
                             .get_mut(player_entity)
@@ -636,7 +636,7 @@ impl World {
                 }
                 OrganType::Lung => {
                     let mut amount = if organ.cybernetic { 2 } else { 1 };
-                    if organ.traits.damaged && rng.gen::<f64>() < 0.5 {
+                    if organ.traits.damaged && rng.random::<f64>() < 0.5 {
                         amount = 0;
                     }
                     oxygen_increase += amount;
@@ -669,11 +669,11 @@ impl World {
         }
         // separate loop so stomach is applied after heart
         for organ in &organs {
-            if organ.type_ == OrganType::Stomach && rng.gen::<f64>() < 0.2 {
+            if organ.type_ == OrganType::Stomach && rng.random::<f64>() < 0.2 {
                 let food = self.components.food.get_mut(player_entity).unwrap();
                 if food.current() > 0 {
                     food.decrease(1);
-                    if rng.gen::<f64>() < 0.5 {
+                    if rng.random::<f64>() < 0.5 {
                         let mut health_increase = 1;
                         if organ.cybernetic {
                             health_increase *= 2;
@@ -731,7 +731,7 @@ impl World {
         }
     }
 
-    fn drop_item(&mut self, item_entity: Entity, coord: Coord) {
+    fn drop_item(&mut self, item_entity: Entity, coord: ICoord) {
         if let Some(coord) = self.nearest_itemless_coord(coord) {
             let _ = self.spatial_table.update(
                 item_entity,

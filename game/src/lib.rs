@@ -1,6 +1,6 @@
 pub use direction::{CardinalDirection, Direction};
 pub use entity_table::{entity_data, entity_update, ComponentTable, Entity};
-pub use grid_2d::{Coord, Grid, Size};
+pub use grid_2d::{Grid, ICoord, UCoord};
 pub use grid_search_cardinal::distance_map;
 pub use line_2d::{self, coords_between, coords_between_cardinal};
 use rand::{Rng, SeedableRng};
@@ -59,7 +59,7 @@ pub enum ExternalEvent {
     FirePistol,
     FireShotgun,
     FireRocket,
-    Explosion(Coord),
+    Explosion(ICoord),
     ChangeLevel,
     Melee,
     Death,
@@ -231,8 +231,8 @@ pub struct PlayerStats {
 pub enum Input {
     Walk(CardinalDirection),
     Wait,
-    FireEquipped(Coord),
-    FireBody(Coord),
+    FireEquipped(ICoord),
+    FireBody(ICoord),
     Get,
     Unequip,
     Reload,
@@ -263,7 +263,7 @@ impl Default for VisibleCellData {
 }
 
 impl VisibleCellData {
-    fn update(&mut self, world: &World, coord: Coord) {
+    fn update(&mut self, world: &World, coord: ICoord) {
         let layers = world.spatial_table.layers_at_checked(coord);
         self.tiles = layers.map(|&entity| {
             entity
@@ -285,15 +285,15 @@ impl VisibleCellData {
 impl VisibleWorld for World {
     type VisionDistance = Circle;
 
-    fn size(&self) -> Size {
+    fn size(&self) -> UCoord {
         self.spatial_table.grid_size()
     }
 
-    fn get_opacity(&self, coord: Coord) -> u8 {
+    fn get_opacity(&self, coord: ICoord) -> u8 {
         Self::get_opacity(self, coord)
     }
 
-    fn for_each_light_by_coord<F: FnMut(Coord, &Light<Self::VisionDistance>)>(&self, mut f: F) {
+    fn for_each_light_by_coord<F: FnMut(ICoord, &Light<Self::VisionDistance>)>(&self, mut f: F) {
         for (entity, light) in self.components.light.iter() {
             if let Some(coord) = self.spatial_table.coord_of(entity) {
                 f(coord, light);
@@ -357,8 +357,8 @@ pub const NUM_LEVELS: usize = 4;
 
 impl Game {
     pub fn new<R: Rng>(config: &Config, _victories: Vec<Victory>, base_rng: &mut R) -> Self {
-        let mut rng = Isaac64Rng::seed_from_u64(base_rng.gen());
-        let animation_rng = Isaac64Rng::seed_from_u64(base_rng.gen());
+        let mut rng = Isaac64Rng::seed_from_u64(base_rng.random());
+        let animation_rng = Isaac64Rng::seed_from_u64(base_rng.random());
         let mut other_levels = (0..NUM_LEVELS)
             .map(|i| {
                 let Terrain { world } = Terrain::generate(i, &mut rng);
@@ -512,12 +512,12 @@ impl Game {
         }
     }
 
-    pub fn cell_visibility_at_coord(&self, coord: Coord) -> CellVisibility<&VisibleCellData> {
+    pub fn cell_visibility_at_coord(&self, coord: ICoord) -> CellVisibility<&VisibleCellData> {
         self.visibility_grid.get_visibility(coord)
     }
 
     /// Returns the coordinate of the player character
-    pub fn player_coord(&self) -> Coord {
+    pub fn player_coord(&self) -> ICoord {
         self.world
             .spatial_table
             .coord_of(self.player_entity)
@@ -539,8 +539,8 @@ impl Game {
 
     fn open_door_entity_adjacent_to_coord(
         &self,
-        coord: Coord,
-        dest_coord: Coord,
+        coord: ICoord,
+        dest_coord: ICoord,
     ) -> Option<Entity> {
         for direction in Direction::all() {
             let potential_door_coord = coord + direction.coord();
@@ -732,7 +732,7 @@ impl Game {
                         .unwrap_or(1..=1);
                     self.world.damage_player(
                         entity,
-                        self.rng.gen_range(damage_range),
+                        self.rng.random_range(damage_range),
                         &mut self.rng,
                         &mut self.external_events,
                         &mut self.message_log,
@@ -932,7 +932,7 @@ impl Game {
         !self.world.components.blocks_gameplay.is_empty()
     }
 
-    fn fire_pistol(&mut self, target: Coord) {
+    fn fire_pistol(&mut self, target: ICoord) {
         let start = self.player_coord();
         let target = line_2d::LineSegment::new(start, target)
             .infinite_iter()
@@ -948,7 +948,7 @@ impl Game {
         self.message_log.push(Message::FireGun(Item::Pistol));
     }
 
-    fn fire_shotgun(&mut self, target: Coord) {
+    fn fire_shotgun(&mut self, target: ICoord) {
         let start = self.player_coord();
         let target = line_2d::LineSegment::new(start, target)
             .infinite_iter()
@@ -971,7 +971,7 @@ impl Game {
         self.message_log.push(Message::FireGun(Item::Shotgun));
     }
 
-    fn fire_rocket(&mut self, target: Coord) {
+    fn fire_rocket(&mut self, target: ICoord) {
         let start = self.player_coord();
         self.external_events.push(ExternalEvent::FireRocket);
         self.world
@@ -980,7 +980,7 @@ impl Game {
             .push(Message::FireGun(Item::RocketLauncher));
     }
 
-    fn fire_equipped(&mut self, target: Coord) -> Result<(), ActionError> {
+    fn fire_equipped(&mut self, target: ICoord) -> Result<(), ActionError> {
         let mut has_gun = false;
         let mut has_ammo = false;
         let player_hands = self.world.components.hands.get(self.player_entity).unwrap();
@@ -1022,7 +1022,7 @@ impl Game {
         }
     }
 
-    fn fire_body_pistol(&mut self, target: Coord) {
+    fn fire_body_pistol(&mut self, target: ICoord) {
         let start = self.player_coord();
         let target = line_2d::LineSegment::new(start, target)
             .infinite_iter()
@@ -1037,7 +1037,7 @@ impl Game {
         );
     }
 
-    fn fire_body_shotgun(&mut self, target: Coord) {
+    fn fire_body_shotgun(&mut self, target: ICoord) {
         let start = self.player_coord();
         self.external_events.push(ExternalEvent::FireShotgun);
         for _ in 0..8 {
@@ -1055,7 +1055,7 @@ impl Game {
         }
     }
 
-    fn fire_body(&mut self, target: Coord) -> Result<(), ActionError> {
+    fn fire_body(&mut self, target: ICoord) -> Result<(), ActionError> {
         let organs = self.world.active_player_organs();
         let mut health_cost = 0;
         let mut count = 0;
@@ -2181,7 +2181,7 @@ impl Game {
         }
     }
 
-    pub fn for_each_visible_particle<F: FnMut(Coord, VisibleEntity, Option<Rgb24>)>(
+    pub fn for_each_visible_particle<F: FnMut(ICoord, VisibleEntity, Option<Rgb24>)>(
         &self,
         mut f: F,
     ) {
@@ -2201,7 +2201,7 @@ impl Game {
         }
     }
 
-    pub fn world_size(&self) -> Size {
+    pub fn world_size(&self) -> UCoord {
         self.world.spatial_table.grid_size()
     }
 

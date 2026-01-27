@@ -2,7 +2,7 @@ use crate::{
     world::data::{Disposition, Npc, NpcMovement},
     Input, World,
 };
-use coord_2d::{Coord, Size};
+use coord_2d::{ICoord, UCoord};
 use direction::CardinalDirection;
 use entity_table::Entity;
 use grid_2d::Grid;
@@ -16,7 +16,7 @@ use grid_search_cardinal::{
     CanEnter, Path,
 };
 use line_2d::LineSegment;
-use rand::{seq::SliceRandom, Rng};
+use rand::{prelude::IndexedRandom, Rng};
 use serde::{Deserialize, Serialize};
 use shadowcast::{vision_distance, Context as ShadowcastContext, InputGrid, VisionDistance};
 use std::collections::HashMap;
@@ -28,10 +28,10 @@ struct Visibility;
 impl InputGrid for Visibility {
     type Grid = World;
     type Opacity = u8;
-    fn size(&self, world: &Self::Grid) -> Size {
+    fn size(&self, world: &Self::Grid) -> UCoord {
         world.size()
     }
-    fn get_opacity(&self, grid: &Self::Grid, coord: Coord) -> Self::Opacity {
+    fn get_opacity(&self, grid: &Self::Grid, coord: ICoord) -> Self::Opacity {
         grid.get_opacity(coord)
     }
 }
@@ -42,7 +42,7 @@ struct WorldCanEnterIgnoreCharacters<'a> {
 }
 
 impl<'a> CanEnter for WorldCanEnterIgnoreCharacters<'a> {
-    fn can_enter(&self, coord: Coord) -> bool {
+    fn can_enter(&self, coord: ICoord) -> bool {
         self.world
             .can_npc_traverse_feature_at_coord_with_movement(coord, self.npc_movement)
     }
@@ -54,7 +54,7 @@ struct WorldCanEnterAvoidNpcs<'a> {
 }
 
 impl<'a> CanEnter for WorldCanEnterAvoidNpcs<'a> {
-    fn can_enter(&self, coord: Coord) -> bool {
+    fn can_enter(&self, coord: ICoord) -> bool {
         let can_traverse = self
             .world
             .can_npc_traverse_feature_at_coord_with_movement(coord, self.npc_movement);
@@ -63,8 +63,8 @@ impl<'a> CanEnter for WorldCanEnterAvoidNpcs<'a> {
 }
 
 fn has_line_of_sight(
-    eye: Coord,
-    dest: Coord,
+    eye: ICoord,
+    dest: ICoord,
     vision_distance: vision_distance::Circle,
     world: &World,
 ) -> bool {
@@ -96,7 +96,7 @@ pub struct AiContext {
 }
 
 impl AiContext {
-    pub fn new(size: Size) -> Self {
+    pub fn new(size: UCoord) -> Self {
         Self {
             best_search_context: BestSearchContext::new(size),
             point_to_point_search_context: PointToPointSearchContext::new(size),
@@ -184,7 +184,7 @@ struct LastSeenGrid {
 struct CanSeePlayer;
 
 impl LastSeenGrid {
-    fn new(size: Size) -> Self {
+    fn new(size: UCoord) -> Self {
         Self {
             count: 1,
             last_seen: Grid::new_fn(size, |_| LastSeenCell {
@@ -197,7 +197,7 @@ impl LastSeenGrid {
     fn update(
         &mut self,
         npc: &Npc,
-        eye: Coord,
+        eye: ICoord,
         vision_distance: vision_distance::Circle,
         world: &World,
         can_see_player: Option<CanSeePlayer>,
@@ -232,7 +232,7 @@ impl LastSeenGrid {
 struct Wander<'a, R> {
     world: &'a World,
     last_seen_grid: &'a LastSeenGrid,
-    min_last_seen_coord: Option<Coord>,
+    min_last_seen_coord: Option<ICoord>,
     min_last_seen_count: u64,
     entity: Entity,
     rng: &'a mut R,
@@ -243,7 +243,7 @@ impl<'a, R: Rng> BestSearch for Wander<'a, R> {
     fn is_at_max_depth(&self, _depth: Depth) -> bool {
         false
     }
-    fn can_enter_initial_updating_best(&mut self, coord: Coord) -> bool {
+    fn can_enter_initial_updating_best(&mut self, coord: ICoord) -> bool {
         if self
             .world
             .can_npc_traverse_feature_at_coord_with_entity(coord, self.entity)
@@ -258,7 +258,7 @@ impl<'a, R: Rng> BestSearch for Wander<'a, R> {
                             vision_distance::Circle::new_squared(40),
                             self.world,
                         );
-                        if can_see_character && self.rng.gen_range(0u8..4) > 0 {
+                        if can_see_character && self.rng.random_range(0u8..4) > 0 {
                             return false;
                         }
                     }
@@ -281,7 +281,7 @@ impl<'a, R: Rng> BestSearch for Wander<'a, R> {
     fn can_step_updating_best(&mut self, step: Step) -> bool {
         self.can_enter_initial_updating_best(step.to_coord)
     }
-    fn best_coord(&self) -> Option<Coord> {
+    fn best_coord(&self) -> Option<ICoord> {
         self.min_last_seen_coord
     }
 }
@@ -299,7 +299,7 @@ enum Behaviour {
         avoid: bool,
     },
     Chase {
-        last_seen_player_coord: Coord,
+        last_seen_player_coord: ICoord,
         accurate: bool,
     },
     Flee,
@@ -308,7 +308,7 @@ enum Behaviour {
 }
 
 impl Agent {
-    pub fn new(size: Size) -> Self {
+    pub fn new(size: UCoord) -> Self {
         Self {
             last_seen_grid: LastSeenGrid::new(size),
             vision_distance: vision_distance::Circle::new_squared(40),

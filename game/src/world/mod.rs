@@ -1,5 +1,5 @@
 use crate::realtime::RealtimeComponents;
-use coord_2d::Size;
+use coord_2d::UCoord;
 use entity_table::{Entity, EntityAllocator};
 use grid_search_cardinal::distance_map::DistanceMap;
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(size: Size) -> Self {
+    pub fn new(size: UCoord) -> Self {
         let entity_allocator = EntityAllocator::default();
         let components = Components::default();
         let realtime_components = RealtimeComponents::default();
@@ -48,7 +48,7 @@ impl World {
         self.components.remove_entity_data(entity)
     }
 
-    pub fn size(&self) -> Size {
+    pub fn size(&self) -> UCoord {
         self.spatial_table.grid_size()
     }
 }

@@ -13,7 +13,6 @@ pub struct NativeCommon {
     pub initial_rng_seed: InitialRngSeed,
     pub omniscient: bool,
     pub new_game: bool,
-    pub mute: bool,
 }
 impl NativeCommon {
     pub fn parser() -> impl meap::Parser<Item = Self> {
@@ -34,7 +33,6 @@ impl NativeCommon {
                 delete_controls = flag("delete-controls").desc("delete controls file");
                 new_game = flag("new-game").desc("start a new game, skipping the menu");
                 omniscient = flag("omniscient").desc("enable omniscience");
-                mute = flag("mute").desc("mute all sound");
             } in {{
                 let initial_rng_seed = rng_seed.map(InitialRngSeed::U64).unwrap_or(InitialRngSeed::Random);
                 let mut file_storage = StaticStorage::new(
@@ -70,7 +68,6 @@ impl NativeCommon {
                     storage,
                     omniscient,
                     new_game,
-                    mute,
                 }
             }}
         }

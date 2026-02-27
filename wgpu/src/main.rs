@@ -31,7 +31,6 @@ fn main() {
                 initial_rng_seed,
                 omniscient,
                 new_game,
-                mute,
             },
         force_opengl,
     } = Args::parser().with_help_default().parse_env_or_exit();
@@ -40,13 +39,11 @@ fn main() {
         initial_rng_seed,
         omniscient,
         new_game,
-        mute,
     });
     run(
         app,
         Config {
             title: NAME.to_string(),
-
             dimensions_px: Dimensions {
                 width: 960.,
                 height: 720.,
@@ -59,6 +56,10 @@ fn main() {
             cell_dimensions_px: Dimensions {
                 width: 12.,
                 height: 24.,
+            },
+            character_cell_offset_px: Dimensions {
+                width: 0.,
+                height: 2.,
             },
             font_size_px: 24.,
             underline_width_cell_ratio: 0.1,

@@ -1,5 +1,12 @@
 use rgb_int::Rgb24;
 
+pub const TITLE_BACKGROUND: Rgb24 = Rgb24::new(200, 150, 0);
+pub const TITLE_FOREGROUND: Rgb24 = Rgb24::new_grey(0);
+pub const MENU_FOREGROUND: Rgb24 = Rgb24::new_grey(187);
+pub const MENU_BACKGROUND: Rgb24 = Rgb24::new_grey(0);
+pub const MENU_SELECT_BACKGROUND: Rgb24 = TITLE_BACKGROUND.saturating_scalar_mul_div(3, 4);
+pub const MENU_SELECT_FOREGROUND: Rgb24 = Rgb24::new_grey(255);
+
 pub const FLOOR: Rgb24 = Rgb24::new(108, 0, 162);
 pub const FLOOR_BLOODY: Rgb24 = Rgb24::new(255, 0, 0);
 pub const VAPORWAVE_FOREGROUND: Rgb24 = Rgb24::new(255, 128, 255);

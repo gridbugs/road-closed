@@ -26,7 +26,6 @@ pub fn run() -> Result<(), JsValue> {
         initial_rng_seed: InitialRngSeed::Random,
         omniscient: false,
         new_game: false,
-        mute: false,
     };
     context.run_with_loop_method(app(args), LoopMethod::SetTimeoutMs(1000 / 60));
     Ok(())

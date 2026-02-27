@@ -6,7 +6,6 @@ use crate::{
         GameInstanceStorable, Mode,
     },
     image::Images,
-    music::{MusicState, Track},
     text,
 };
 use chargrid::{self, border::BorderStyle, control_flow::*, menu, prelude::*};
@@ -21,11 +20,8 @@ use rand_isaac::Isaac64Rng;
 use rgb_int::Rgb24;
 use serde::{Deserialize, Serialize};
 
-const LEVEL_TRACKS: &[Track] = &[Track::Level1, Track::Level2];
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Config {
-    music_volume: f32,
     sfx_volume: f32,
     won: bool,
     first_run: bool,
@@ -35,7 +31,6 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            music_volume: 0.2,
             sfx_volume: 0.5,
             won: false,
             first_run: true,
@@ -48,21 +43,16 @@ impl Default for Config {
 pub type AppCF<T> = CF<Option<T>, GameLoopData>;
 pub type State = GameLoopData;
 
-const MENU_BACKGROUND: Rgba32 = colours::VAPORWAVE_BACKGROUND
-    .to_rgba32(255)
-    .saturating_scalar_mul_div(1, 4);
 const MENU_FADE_SPEC: menu::identifier::fade_spec::FadeSpec = {
     use menu::identifier::fade_spec::*;
     FadeSpec {
         on_select: Fade {
             to: To {
                 rgba32: Layers {
-                    foreground: colours::VAPORWAVE_BACKGROUND.to_rgba32(255),
-                    background: colours::VAPORWAVE_FOREGROUND
-                        .to_rgba32(255)
-                        .saturating_scalar_mul_div(4, 3),
+                    foreground: colours::MENU_SELECT_FOREGROUND.to_rgba32(255),
+                    background: colours::MENU_SELECT_BACKGROUND.to_rgba32(255),
                 },
-                bold: false,
+                bold: true,
                 underline: false,
             },
             from: From::current(),
@@ -74,10 +64,8 @@ const MENU_FADE_SPEC: menu::identifier::fade_spec::FadeSpec = {
         on_deselect: Fade {
             to: To {
                 rgba32: Layers {
-                    foreground: colours::VAPORWAVE_FOREGROUND
-                        .to_rgba32(255)
-                        .saturating_scalar_mul_div(2, 3),
-                    background: MENU_BACKGROUND,
+                    foreground: colours::MENU_FOREGROUND.to_rgba32(255),
+                    background: colours::MENU_BACKGROUND.to_rgba32(255),
                 },
                 bold: false,
                 underline: false,
@@ -298,9 +286,7 @@ pub struct GameLoopData {
     config: Config,
     images: Images,
     cursor: Option<ICoord>,
-    music_state: MusicState,
     screen_shake: Option<ScreenShake>,
-    level_track_index: usize,
 }
 
 impl GameLoopData {
@@ -309,7 +295,6 @@ impl GameLoopData {
         mut storage: AppStorage,
         initial_rng_seed: InitialRngSeed,
         force_new_game: bool,
-        mute: bool,
     ) -> (Self, GameLoopState) {
         let mut rng_seed_source = RngSeedSource::new(initial_rng_seed);
         let config = storage.load_config().unwrap_or_default();
@@ -341,17 +326,6 @@ impl GameLoopData {
             storage.save_controls(&controls);
             controls
         };
-        let music_state = MusicState::new();
-        if mute {
-            music_state.set_volume(0.0);
-        } else {
-            music_state.set_volume(0.5);
-        }
-        if instance.is_some() {
-            music_state.set_track(Some(Track::Level1));
-        } else {
-            music_state.set_track(Some(Track::Menu));
-        };
         (
             Self {
                 instance,
@@ -362,9 +336,7 @@ impl GameLoopData {
                 config,
                 images: Images::new(),
                 cursor: None,
-                music_state,
                 screen_shake: None,
-                level_track_index: 0,
             },
             state,
         )
@@ -389,7 +361,6 @@ impl GameLoopData {
     }
 
     fn clear_saved_game(&mut self) {
-        self.music_state.set_track(Some(Track::Menu));
         self.storage.clear_game();
         self.instance = None;
     }
@@ -398,7 +369,6 @@ impl GameLoopData {
         let victories = self.config.victories.clone();
         let (instance, running) = new_game(&mut self.rng_seed_source, &self.game_config, victories);
         self.instance = Some(instance);
-        self.music_state.set_track(Some(Track::Level1));
         running
     }
 
@@ -450,19 +420,6 @@ impl GameLoopData {
                         let (witness, _action_result) = match app_input {
                             AppInput::Direction(direction) => {
                                 let witness = running.walk(&mut instance.game, direction);
-                                for external_event in instance.game.take_external_events() {
-                                    match external_event {
-                                        ExternalEvent::Melee => self.music_state.sfx_melee(),
-                                        ExternalEvent::ChangeLevel => {
-                                            self.level_track_index += 1;
-                                            self.music_state.set_track(Some(
-                                                LEVEL_TRACKS
-                                                    [self.level_track_index % LEVEL_TRACKS.len()],
-                                            ));
-                                        }
-                                        _ => (),
-                                    }
-                                }
                                 witness
                             }
                             AppInput::Wait => running.wait(&mut instance.game),
@@ -522,7 +479,6 @@ impl GameLoopData {
                 });
                 for external_event in instance.game.take_external_events() {
                     if let ExternalEvent::Explosion(_) = external_event {
-                        self.music_state.sfx_explosion();
                         let mut rng = Isaac64Rng::from_rng(&mut rand::rng());
                         let screen_shake = ScreenShake {
                             countdown: 2,
@@ -722,9 +678,9 @@ impl Component for GameInstanceFireBodyComponent {
 
 fn menu_style<T: 'static>(menu: AppCF<T>) -> AppCF<T> {
     let mut border_style = BorderStyle::default();
-    border_style.foreground = colours::VAPORWAVE_FOREGROUND.to_rgba32(255);
+    border_style.foreground = colours::TITLE_BACKGROUND.to_rgba32(255);
     menu.border(border_style)
-        .fill(MENU_BACKGROUND)
+        .fill(colours::MENU_BACKGROUND.to_rgba32(255))
         .centre()
         .overlay_tint(
             render_state(|state: &State, ctx, fb| state.render(ctx, fb, Mode::Normal)),
@@ -743,19 +699,26 @@ enum MainMenuEntry {
 fn title_decorate<T: 'static>(cf: AppCF<T>) -> AppCF<T> {
     let decoration = {
         let style = Style::plain_text();
-        chargrid::many![styled_string(
-            "Electric Organ".to_string(),
-            style
-                .with_bold(true)
-                .with_foreground(colours::VAPORWAVE_BACKGROUND.to_rgba32(255))
-                .with_background(
-                    colours::VAPORWAVE_FOREGROUND
-                        .to_rgba32(255)
-                        .saturating_scalar_mul_div(4, 3)
-                ),
-        )]
+        chargrid::many![
+            styled_string(
+                " // // //    ROAD CLOSED    // // // ".to_string(),
+                style
+                    .with_bold(true)
+                    .with_foreground(colours::TITLE_FOREGROUND.to_rgba32(255))
+                    .with_background(colours::TITLE_BACKGROUND.to_rgba32(255)),
+            )
+            .add_offset(ICoord::new(21, 8)),
+            styled_string(
+                " // // // // // // // // // // // // ".to_string(),
+                style
+                    .with_bold(true)
+                    .with_foreground(colours::TITLE_FOREGROUND.to_rgba32(255))
+                    .with_background(colours::TITLE_BACKGROUND.to_rgba32(255)),
+            )
+            .add_offset(ICoord::new(21, 18))
+        ]
     };
-    cf.overlay(decoration.add_offset(ICoord::new(31, 10)), 0)
+    cf.overlay(decoration, 0)
 }
 
 fn main_menu() -> AppCF<MainMenuEntry> {
@@ -784,164 +747,6 @@ const MAIN_MENU_TEXT_WIDTH: u32 = 40;
 
 fn background() -> CF<(), State> {
     unit()
-}
-
-struct MainMenuBackground {
-    count: u64,
-    rng_seed: u64,
-    city_heights: Vec<u32>,
-}
-
-impl MainMenuBackground {
-    fn new() -> Self {
-        let mut rng = Isaac64Rng::from_rng(&mut rand::rng());
-        let city_heights = (0..100).map(|_| rng.random_range(3..8)).collect();
-        Self {
-            count: 0,
-            rng_seed: rng.random(),
-            city_heights,
-        }
-    }
-}
-
-impl Component for MainMenuBackground {
-    type Output = ();
-    type State = GameLoopData;
-
-    fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
-        let screen_size = ctx.bounding_box.size();
-        let mut star_rng = Isaac64Rng::seed_from_u64(self.rng_seed);
-        let mut star_brightness_rng = Isaac64Rng::seed_from_u64(self.count / 30);
-        for i in 0..15 {
-            for j in 0..(screen_size.width() as i32) {
-                let coord = ICoord::new(j, i);
-                let render_cell = RenderCell {
-                    character: None,
-                    style: Style::default()
-                        .with_background(colours::VAPORWAVE_FOREGROUND.to_rgba32(i as u8 * 10)),
-                };
-                fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
-            }
-        }
-        for i in 15..30 {
-            for j in 0..(screen_size.width() as i32) {
-                let coord = ICoord::new(j, i);
-                let render_cell = RenderCell {
-                    character: None,
-                    style: Style::default()
-                        .with_background(colours::VAPORWAVE_BACKGROUND.to_rgba32(127)),
-                };
-                fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
-            }
-        }
-        for _ in 0..20 {
-            let coord = ICoord {
-                x: star_rng.random_range(0..screen_size.width() as i32),
-                y: star_rng.random_range(0..14),
-            };
-            let star_render_cell = RenderCell {
-                character: Some('.'),
-                style: Style::default()
-                    .with_bold(true)
-                    .with_foreground(Rgba32::new_grey(
-                        star_brightness_rng.random_range(127..=255),
-                    )),
-            };
-            fb.set_cell_relative_to_ctx(ctx, coord, 0, star_render_cell);
-        }
-        for i in 0..screen_size.width() {
-            let city_height = self.city_heights
-                [((i as usize + (self.count as usize / 30)) / 4) % self.city_heights.len()];
-            for j in 0..city_height {
-                let coord = ICoord {
-                    x: i as i32,
-                    y: 14 - j as i32,
-                };
-                let render_cell = RenderCell {
-                    character: Some(' '),
-                    style: Style::default().with_background(Rgba32::new(0, 31, 127, 255)),
-                };
-                fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
-            }
-        }
-        let stride = 10;
-        let virtual_width = 20;
-        let offset = ((virtual_width * stride) / 2) - (screen_size.width() / 2) as i32;
-        let end = ICoord::new(screen_size.width() as i32 / 2, 5);
-        let line_render_cell = |y| RenderCell {
-            character: None,
-            style: Style::default().with_background(
-                colours::VAPORWAVE_FOREGROUND
-                    .to_rgba32(255)
-                    .linear_interpolate(
-                        colours::VAPORWAVE_BACKGROUND.to_rgba32(255),
-                        (y - 14) as u8 * 10,
-                    ),
-            ),
-        };
-        for i in 0..virtual_width {
-            let x = (i * stride) - offset - ((self.count / 5) % stride as u64) as i32;
-            let start = ICoord::new(x, screen_size.height() as i32);
-            for coord in line_2d::coords_between(start, end) {
-                if coord.x >= 0 && coord.x <= screen_size.width() as i32 {
-                    fb.set_cell_relative_to_ctx(ctx, coord, 0, line_render_cell(coord.y));
-                }
-                if coord.y == screen_size.height() as i32 / 2 {
-                    break;
-                }
-            }
-        }
-        let mut hline = |y| {
-            for coord in line_2d::coords_between(
-                ICoord::new(0, y),
-                ICoord::new(screen_size.width() as i32, y),
-            ) {
-                fb.set_cell_relative_to_ctx(ctx, coord, 0, line_render_cell(y));
-            }
-        };
-        hline(24);
-        hline(20);
-        hline(17);
-        hline(15);
-        let heart_image = if self.count % 120 < 110 {
-            &state.images.heart
-        } else {
-            &state.images.heart_beat
-        };
-        let heart_width = 30;
-        let heart_left = screen_size.width() as i32 / 2 - heart_width / 2;
-        let heart_image_offset = ICoord::new(12, 3);
-        for i in 0..20 {
-            for j in 0..heart_width {
-                let coord = ICoord::new(j, i);
-                let screen_coord = ICoord::new(j + heart_left, i);
-                let heart_cell = heart_image.grid.get_checked(coord + heart_image_offset);
-                if heart_cell.foreground().unwrap().r == 255 {
-                    continue;
-                }
-                let mut render_cell = RenderCell {
-                    character: Some(' '),
-                    style: Style::default(),
-                };
-                let alpha = 50 + i as u8 * 10;
-                if heart_cell.foreground().unwrap().g == 255 {
-                    render_cell.style.background = Some(Rgb24::new(0, 255, 255).to_rgba32(alpha));
-                }
-                if heart_cell.foreground().unwrap().b == 255 {
-                    render_cell.style.background = Some(Rgb24::new(0, 187, 127).to_rgba32(alpha));
-                }
-                fb.set_cell_relative_to_ctx(ctx, screen_coord, 0, render_cell);
-            }
-        }
-    }
-    fn update(&mut self, _state: &mut Self::State, _ctx: Ctx, event: Event) -> Self::Output {
-        if let Event::Tick(_) = event {
-            self.count += 1;
-        }
-    }
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
-        ctx.bounding_box.size()
-    }
 }
 
 fn help() -> AppCF<()> {
@@ -1125,24 +930,21 @@ fn view_organs() -> AppCF<()> {
 
 fn main_menu_loop() -> AppCF<MainMenuOutput> {
     use MainMenuEntry::*;
-    title_decorate(
-        main_menu()
-            .add_offset(ICoord::new(32, 12))
-            .overlay(MainMenuBackground::new(), 1),
-    )
-    .repeat_unit(move |entry| match entry {
-        NewGame => text::loading(MAIN_MENU_TEXT_WIDTH)
-            .centre()
-            .overlay(background(), 1)
-            .then(|| {
-                on_state(|state: &mut State| MainMenuOutput::NewGame {
-                    new_running: state.new_game(),
+    title_decorate(main_menu().add_offset(ICoord::new(34, 12))).repeat_unit(
+        move |entry| match entry {
+            NewGame => text::loading(MAIN_MENU_TEXT_WIDTH)
+                .centre()
+                .overlay(background(), 1)
+                .then(|| {
+                    on_state(|state: &mut State| MainMenuOutput::NewGame {
+                        new_running: state.new_game(),
+                    })
                 })
-            })
-            .break_(),
-        Help => help().continue_(),
-        Quit => val_once(MainMenuOutput::Quit).break_(),
-    })
+                .break_(),
+            Help => help().continue_(),
+            Quit => val_once(MainMenuOutput::Quit).break_(),
+        },
+    )
 }
 
 #[derive(Clone)]
@@ -1240,14 +1042,6 @@ fn fire_equipped(fire_equipped: FireEquipped) -> AppCF<Witness> {
             Ok(coord) => {
                 let instance = state.instance.as_mut().unwrap();
                 let (witness, _) = fire_equipped.commit(&mut instance.game, coord);
-                for external_event in instance.game.take_external_events() {
-                    match external_event {
-                        ExternalEvent::FirePistol => state.music_state.sfx_pistol(),
-                        ExternalEvent::FireShotgun => state.music_state.sfx_shotgun(),
-                        ExternalEvent::FireRocket => state.music_state.sfx_rocket(),
-                        _ => (),
-                    }
-                }
                 witness
             }
             Err(Cancel) => fire_equipped.cancel(),
@@ -1261,13 +1055,6 @@ fn fire_body(fire_body: FireBody) -> AppCF<Witness> {
             Ok(coord) => {
                 let instance = state.instance.as_mut().unwrap();
                 let (witness, _) = fire_body.commit(&mut instance.game, coord);
-                for external_event in instance.game.take_external_events() {
-                    match external_event {
-                        ExternalEvent::FirePistol => state.music_state.sfx_pistol(),
-                        ExternalEvent::FireShotgun => state.music_state.sfx_shotgun(),
-                        _ => (),
-                    }
-                }
                 witness
             }
             Err(Cancel) => fire_body.cancel(),
@@ -1288,8 +1075,7 @@ fn win(win: game::Win) -> AppCF<()> {
 }
 
 fn game_over(reason: GameOverReason) -> AppCF<()> {
-    menu_style(on_state_then(move |state: &mut State| {
-        state.music_state.sfx_death();
+    menu_style(on_state_then(move |_state: &mut State| {
         text::game_over(MAIN_MENU_TEXT_WIDTH, reason)
     }))
     .then(|| message_log(MessageLogReason::Die))
@@ -1498,7 +1284,6 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
                 .continue_(),
         })
         .bound_size(UCoord::new_u16(80, 30))
-        .on_each_tick_with_state(|state| state.music_state.tick())
         .on_exit_with_state(|state| state.try_save_instance_cheat())
     })
 }

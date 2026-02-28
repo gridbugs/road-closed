@@ -4,9 +4,9 @@ use chargrid::{
     text::{self, Text},
 };
 use game::{
-    witness::{self, Game, RunningGame},
     ActionError, CellVisibility, Config, Item, Layer, LayerTable, Message, Meter, NpcType, Tile,
     VisibleEntity,
+    witness::{self, Game, RunningGame},
 };
 use rand::Rng;
 use rgb_int::Rgb24;
@@ -248,7 +248,7 @@ impl GameInstance {
             if messages.len() >= max {
                 break;
             }
-            if let Some((ref mut count, last)) = messages.last_mut() {
+            if let Some((count, last)) = messages.last_mut() {
                 if last == m {
                     *count += 1;
                     continue;

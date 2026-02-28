@@ -2,7 +2,7 @@
 name = "frontend_sdl2"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 chargrid_sdl2 = "0.6"

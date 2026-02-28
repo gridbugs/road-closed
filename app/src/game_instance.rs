@@ -4,18 +4,16 @@ use chargrid::{
     text::{self, Text},
 };
 use game::{
-    ActionError, CellVisibility, Config, Item, Layer, LayerTable, Message, Meter, NpcType, Tile,
-    VisibleEntity,
+    ActionError, CellVisibility, Config, Item, Layer, LayerTable, Message, Meter, Mode, NpcType,
+    Tile, VisibleEntity,
     witness::{self, Game, RunningGame},
 };
 use rand::Rng;
 use rgb_int::Rgb24;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
-pub enum Mode {
-    Normal,
-}
+const GAME_DRAW_AREA_SIZE: UCoord = UCoord::new_u16(50, 25);
+const CAR_ASCII_ART: &'static str = include_str!("car.txt");
 
 #[derive(Clone, Copy)]
 struct LightBlend {
@@ -34,6 +32,11 @@ impl Tint for LightBlend {
 
 pub struct GameInstance {
     pub game: Game,
+}
+
+enum DescriptionAt {
+    Cursor,
+    Player,
 }
 
 fn visible_entity_on_top(layers: &LayerTable<VisibleEntity>) -> Option<(&VisibleEntity, Layer)> {
@@ -129,14 +132,31 @@ impl GameInstance {
                         .with_foreground(Rgba32::new(255, 0, 0, 255)),
                 };
             }
-            Tile::Floor => {
+            Tile::Ground => {
                 return RenderCell {
                     character: Some('.'),
                     style: Style::new()
                         .with_bold(true)
-                        .with_foreground(colours::FLOOR.to_rgba32(255)),
+                        .with_foreground(colours::GROUND.to_rgba32(255)),
                 };
             }
+            Tile::Road => {
+                return RenderCell {
+                    character: Some('.'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::ROAD.to_rgba32(255)),
+                };
+            }
+            Tile::Tree => {
+                return RenderCell {
+                    character: Some('&'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::TREE.to_rgba32(255)),
+                };
+            }
+
             Tile::Wall => {
                 return RenderCell {
                     character: Some('#'),
@@ -185,16 +205,39 @@ impl GameInstance {
                         .with_foreground(colours::ZOMBIE.to_rgba32(255)),
                 };
             }
+            Tile::Car(ch) => {
+                return RenderCell {
+                    character: Some(ch),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::CAR.to_rgba32(255)),
+                };
+            }
         }
     }
 
-    pub fn render_game(&self, ctx: Ctx, fb: &mut FrameBuffer) {
-        let centre_coord_delta = ICoord::new(0, 0);
-        for coord in ctx.bounding_box.size().icoord_iter_row_major() {
-            let cell = self
-                .game
-                .inner_ref()
-                .cell_visibility_at_coord(coord + centre_coord_delta);
+    fn render_car(&self, ctx: Ctx, fb: &mut FrameBuffer) {
+        for (i, line) in CAR_ASCII_ART.lines().enumerate() {
+            for (j, ch) in line.chars().enumerate() {
+                let coord = ICoord::new(j as i32, i as i32);
+                fb.set_cell_relative_to_ctx(
+                    ctx,
+                    coord,
+                    20,
+                    RenderCell {
+                        character: Some(ch),
+                        style: Style::new().with_foreground(Rgba32::new_grey(255)),
+                    },
+                );
+            }
+        }
+    }
+
+    fn render_game(&self, ctx: Ctx, fb: &mut FrameBuffer) {
+        let game = self.game.inner_ref();
+        let centre_coord_delta = game.player_coord() - GAME_DRAW_AREA_SIZE.to_icoord() / 2;
+        for coord in GAME_DRAW_AREA_SIZE.icoord_iter_row_major() {
+            let cell = game.cell_visibility_at_coord(coord + centre_coord_delta);
             let unseen_background = Rgba32::new(0, 0, 0, 255);
             match cell {
                 CellVisibility::Never => {
@@ -211,7 +254,7 @@ impl GameInstance {
                             let depth = Self::layer_to_depth(layer);
                             let mut render_cell = Self::tile_to_render_cell(tile);
                             render_cell.style.background = Some(background);
-                            render_cell.style.foreground = Some(Rgba32::new_grey(127));
+                            render_cell.style.foreground = Some(Rgba32::new_grey(31));
                             fb.set_cell_relative_to_ctx(ctx, coord, depth, render_cell);
                         }
                     });
@@ -240,9 +283,9 @@ impl GameInstance {
         }
     }
 
-    fn render_messages(&self, ctx: Ctx, fb: &mut FrameBuffer) {
+    fn render_messages(&self, max_num_lines: u32, ctx: Ctx, fb: &mut FrameBuffer) {
         use text::*;
-        let max = 4;
+        let max = max_num_lines as usize;
         let mut messages: Vec<(usize, Message)> = Vec::new();
         for m in self.game.inner_ref().message_log().iter().rev() {
             if messages.len() >= max {
@@ -256,7 +299,12 @@ impl GameInstance {
             }
             messages.push((1, m.clone()));
         }
+        let mut line_count = 0;
+        let mut offset = max_num_lines as i32;
         for (i, (count, m)) in messages.into_iter().enumerate() {
+            if line_count >= max_num_lines {
+                break;
+            }
             let text = message_to_text(m);
             let mut text = if count == 1 {
                 text
@@ -267,7 +315,6 @@ impl GameInstance {
                 text
             };
             let alpha = 255 - (i as u8 * 50);
-            let offset = max as i32 - i as i32 - 1;
             for part in &mut text.parts {
                 part.style = part.style.with_foreground(
                     part.style
@@ -276,20 +323,41 @@ impl GameInstance {
                         .with_a(alpha),
                 );
             }
+            let text = text.wrap_word();
+            let size = text.size(&(), ctx);
+            offset -= size.height() as i32;
+            line_count += size.height();
             text.render(&(), ctx.add_y(offset), fb);
         }
     }
 
-    fn render_description(&self, ctx: Ctx, fb: &mut FrameBuffer, cursor: Option<ICoord>) {
+    fn render_description(
+        &self,
+        ctx: Ctx,
+        fb: &mut FrameBuffer,
+        cursor: Option<ICoord>,
+    ) -> DescriptionAt {
         use text::*;
         let (cursor, player) = if let Some(cursor) = cursor {
-            if self.game.inner_ref().world_size().is_valid(cursor) {
-                (cursor, false)
+            if cursor.is_valid(GAME_DRAW_AREA_SIZE) {
+                let offset =
+                    self.game.inner_ref().player_coord() - GAME_DRAW_AREA_SIZE.to_icoord() / 2;
+                let cursor = cursor + offset;
+                if self.game.inner_ref().world_size().is_valid(cursor) {
+                    (cursor, false)
+                } else {
+                    (self.game.inner_ref().player_coord(), true)
+                }
             } else {
                 (self.game.inner_ref().player_coord(), true)
             }
         } else {
             (self.game.inner_ref().player_coord(), true)
+        };
+        let ret = if player {
+            DescriptionAt::Player
+        } else {
+            DescriptionAt::Cursor
         };
         let (visible_entity, verb, end, currently_visible) =
             match self.game.inner_ref().cell_visibility_at_coord(cursor) {
@@ -300,7 +368,7 @@ impl GameInstance {
                     }])
                     .wrap_word()
                     .render(&(), ctx, fb);
-                    return;
+                    return ret;
                 }
                 CellVisibility::Previous(data) => (
                     visible_entity_on_top(&data.tiles),
@@ -397,15 +465,14 @@ impl GameInstance {
                 }
             }
         }
+        ret
     }
 
-    fn render_mode(&self, ctx: Ctx, fb: &mut FrameBuffer, mode: Mode) {
+    fn render_hint(&self, ctx: Ctx, fb: &mut FrameBuffer, mode: Mode) {
         use text::*;
-        let text = match mode {
-            Mode::Normal => Text::new(vec![StyledString::plain_text(
-                "Move with ←↑→↓.\nPress ? for more info.".to_string(),
-            )]),
-        };
+        let text = Text::new(vec![StyledString::plain_text(
+            "Move with ←↑→↓.\nPress ? for more info.".to_string(),
+        )]);
         text.wrap_word().render(&(), ctx, fb);
     }
 
@@ -421,7 +488,120 @@ impl GameInstance {
         render_meter(stats.health, colours::HEALTH, ctx.add_x(x_offset), fb);
     }
 
-    pub fn render(
+    pub fn render(&self, ctx: Ctx, fb: &mut FrameBuffer, cursor: Option<ICoord>, offset: ICoord) {
+        use text::*;
+        let border_style = Style::new()
+            .with_bold(true)
+            .with_foreground(colours::BORDER.to_rgba32(255));
+        let border_text_style = Style::new()
+            .with_bold(true)
+            .with_foreground(colours::BORDER.to_rgba32(255));
+        let game_size = GAME_DRAW_AREA_SIZE;
+        match self.game.inner_ref().mode() {
+            Mode::Driving => {
+                self.render_car(ctx.add_xy(12, 1), fb);
+                // line under game
+                {
+                    let box_render_cell = RenderCell::default().with_style(border_style);
+                    let render_cell = box_render_cell.with_character('═');
+                    for i in 0..fb.size().width() {
+                        let coord = ICoord::new(i as i32, game_size.height() as i32);
+                        fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
+                    }
+                }
+            }
+            Mode::Walking => {
+                let box_render_cell = RenderCell::default().with_style(border_style);
+                self.render_game(ctx.add_offset(offset), fb);
+                // line under game
+                {
+                    for i in 0..fb.size().width() {
+                        let render_cell = box_render_cell.with_character('═');
+                        let coord = ICoord::new(i as i32, game_size.height() as i32);
+                        fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
+                    }
+                    for i in 0..game_size.height() {
+                        let render_cell = box_render_cell.with_character('║');
+                        let coord = ICoord::new(game_size.width() as i32, i as i32);
+                        fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
+                    }
+                    fb.set_cell_relative_to_ctx(
+                        ctx,
+                        game_size.to_icoord(),
+                        0,
+                        box_render_cell.with_character('╩'),
+                    );
+                }
+                let messages_height = 8;
+                let mut ui_y = 0;
+                let ui_x = game_size.width() as i32 + 1;
+                let ui_width = fb.size().width() - ui_x as u32;
+                let ui_ctx = ctx.add_x(ui_x).set_width(ui_width);
+                for i in 0..ui_width {
+                    let render_cell = box_render_cell.with_character('═');
+                    let coord = ICoord::new(i as i32, ui_y);
+                    fb.set_cell_relative_to_ctx(ui_ctx, coord, 1, render_cell);
+                }
+                Text::new(vec![
+                    StyledString {
+                        string: "╠═══════╡ ".to_string(),
+                        style: border_style,
+                    },
+                    StyledString {
+                        string: "Message Log".to_string(),
+                        style: border_text_style,
+                    },
+                    StyledString {
+                        string: " ╞".to_string(),
+                        style: border_style,
+                    },
+                ])
+                .render(
+                    &(),
+                    ctx.add_xy(game_size.width() as i32, ui_y).add_depth(1),
+                    fb,
+                );
+                self.render_messages(messages_height, ui_ctx.add_y(ui_y), fb);
+                ui_y += messages_height as i32 + 1;
+                for i in 0..ui_width {
+                    let render_cell = box_render_cell.with_character('═');
+                    let coord = ICoord::new(i as i32, ui_y);
+                    fb.set_cell_relative_to_ctx(ui_ctx, coord, 1, render_cell);
+                }
+                let description_at = self.render_description(ui_ctx.add_y(ui_y + 1), fb, cursor);
+                let description_at_text = match description_at {
+                    DescriptionAt::Cursor => "at cursor",
+                    DescriptionAt::Player => "at player",
+                };
+                Text::new(vec![
+                    StyledString {
+                        string: "╠═╡ ".to_string(),
+                        style: border_style,
+                    },
+                    StyledString {
+                        string: "Description".to_string(),
+                        style: border_text_style,
+                    },
+                    StyledString {
+                        string: format!(" ({})", description_at_text),
+                        style: Style::plain_text()
+                            .with_foreground(Rgb24::new_grey(127).to_rgba32(255)),
+                    },
+                    StyledString {
+                        string: " ╞".to_string(),
+                        style: border_style,
+                    },
+                ])
+                .render(
+                    &(),
+                    ctx.add_xy(game_size.width() as i32, ui_y).add_depth(1),
+                    fb,
+                );
+            }
+        }
+    }
+
+    pub fn _render(
         &self,
         ctx: Ctx,
         fb: &mut FrameBuffer,
@@ -431,7 +611,9 @@ impl GameInstance {
     ) {
         use text::*;
         self.render_game(ctx.add_offset(offset), fb);
+        //self.render_car(ctx, fb);
         self.render_messages(
+            4,
             ctx.add_xy(1, ctx.bounding_box.size().height() as i32 - 4)
                 .add_depth(20),
             fb,
@@ -442,7 +624,7 @@ impl GameInstance {
         let border_text_style = Style::new()
             .with_bold(true)
             .with_foreground(colours::VAPORWAVE_FOREGROUND.to_rgba32(255));
-        let game_size = self.game.inner_ref().world_size();
+        let game_size = GAME_DRAW_AREA_SIZE;
         let box_render_cell = RenderCell::default().with_style(border_style);
         // line to the right of game
         {
@@ -503,12 +685,10 @@ impl GameInstance {
                     style: border_text_style,
                 },
                 if cursor.is_some() {
-                    match mode {
-                        Mode::Normal => StyledString {
-                            string: "AT CURSOR".to_string(),
-                            style: border_text_style
-                                .with_foreground(colours::NORMAL_MODE.to_rgba32(255)),
-                        },
+                    StyledString {
+                        string: "AT CURSOR".to_string(),
+                        style: border_text_style
+                            .with_foreground(colours::NORMAL_MODE.to_rgba32(255)),
                     }
                 } else {
                     StyledString {
@@ -543,35 +723,13 @@ impl GameInstance {
                 let coord = ICoord::new(i as i32, offset_y);
                 fb.set_cell_relative_to_ctx(ctx, coord, 0, render_cell);
             }
-            Text::new(vec![
-                StyledString {
-                    string: "╡".to_string(),
-                    style: border_style,
-                },
-                StyledString {
-                    string: "Mode: ".to_string(),
-                    style: border_text_style,
-                },
-                match mode {
-                    Mode::Normal => StyledString {
-                        string: "NORMAL".to_string(),
-                        style: border_text_style
-                            .with_foreground(colours::NORMAL_MODE.to_rgba32(255)),
-                    },
-                },
-                StyledString {
-                    string: "╞".to_string(),
-                    style: border_style,
-                },
-            ])
-            .render(&(), ctx.add_xy(game_size.width() as i32 + 1, offset_y), fb);
             fb.set_cell_relative_to_ctx(
                 ctx,
                 game_size.to_icoord().set_y(offset_y),
                 0,
                 box_render_cell.with_character('╠'),
             );
-            self.render_mode(
+            self.render_hint(
                 ctx.add_offset(game_size.to_icoord().set_y(offset_y + 1))
                     .add_xy(2, 1),
                 fb,
@@ -616,7 +774,7 @@ impl GameInstance {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GameInstanceStorable {
     running_game: RunningGame,
 }
@@ -647,8 +805,16 @@ fn describe_tile(tile: Tile) -> Description {
             )]),
             description: None,
         },
-        Tile::Floor => Description {
-            name: Text::new(vec![StyledString::plain_text("the floor".to_string())]),
+        Tile::Ground => Description {
+            name: Text::new(vec![StyledString::plain_text("the ground".to_string())]),
+            description: None,
+        },
+        Tile::Road => Description {
+            name: Text::new(vec![StyledString::plain_text("the road".to_string())]),
+            description: None,
+        },
+        Tile::Tree => Description {
+            name: Text::new(vec![StyledString::plain_text("a tree".to_string())]),
             description: None,
         },
         Tile::Wall => Description {
@@ -701,6 +867,10 @@ fn describe_tile(tile: Tile) -> Description {
             description: Some(Text::new(vec![StyledString::plain_text(
                 "Doesn't stay dead.".to_string(),
             )])),
+        },
+        Tile::Car(_) => Description {
+            name: Text::new(vec![StyledString::plain_text("a car".to_string())]),
+            description: None,
         },
     }
 }

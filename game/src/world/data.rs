@@ -1,9 +1,9 @@
 pub use crate::world::spatial::{Layer, Location};
-use entity_table::{declare_entity_module, Entity};
+use entity_table::{Entity, declare_entity_module};
 use rgb_int::Rgba32;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
-use visible_area_detection::{vision_distance, Light};
+use visible_area_detection::{Light, vision_distance};
 
 declare_entity_module! {
     components {
@@ -25,6 +25,7 @@ declare_entity_module! {
         colour_hint: Rgba32,
         bump_damage: RangeInclusive<u32>,
         difficult: (),
+        your_car: (),
     }
 }
 pub use components::{Components, EntityData, EntityUpdate};
@@ -33,13 +34,16 @@ pub use components::{Components, EntityData, EntityUpdate};
 pub enum Tile {
     Player,
     DeadPlayer,
-    Floor,
+    Ground,
+    Road,
+    Tree,
     Wall,
     DoorClosed,
     DoorOpen,
     Zombie,
     Debris,
     Item(Item),
+    Car(char),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

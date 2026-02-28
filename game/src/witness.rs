@@ -11,7 +11,7 @@ pub struct Game {
     inner_game: crate::Game,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RunningGame {
     game: crate::Game,
 }
@@ -97,7 +97,9 @@ impl Win {
 
 impl Running {
     pub fn new_panics() -> Self {
-        panic!("this constructor is meant for temporary use during debugging to get the code to compile")
+        panic!(
+            "this constructor is meant for temporary use during debugging to get the code to compile"
+        )
     }
 
     /// Call this method with the knowledge that you have sinned

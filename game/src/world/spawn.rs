@@ -1,12 +1,12 @@
 use crate::{
-    world::{data::*, World},
     Entity,
+    world::{World, data::*},
 };
 use coord_2d::ICoord;
 use entity_table::entity_data;
 use rand::Rng;
 use rgb_int::Rgb24;
-use visible_area_detection::{vision_distance, Diminish, Light};
+use visible_area_detection::{Diminish, Light, vision_distance};
 
 pub fn make_player() -> EntityData {
     EntityData {
@@ -15,7 +15,7 @@ pub fn make_player() -> EntityData {
         tile: Some(Tile::Player),
         light: Some(Light {
             colour: Rgb24::new(150, 150, 150),
-            vision_distance: vision_distance::Circle::new_squared(200),
+            vision_distance: vision_distance::Circle::new_squared(300),
             diminish: Diminish::default().with_height(100.),
         }),
         health: Some(Meter::new(20, 20)),
@@ -64,11 +64,31 @@ impl World {
         )
     }
 
-    pub fn spawn_floor(&mut self, coord: ICoord) -> Entity {
+    pub fn spawn_ground(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
             entity_data! {
-                tile: Tile::Floor,
+                tile: Tile::Ground,
+            },
+        )
+    }
+
+    pub fn spawn_road(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Floor),
+            entity_data! {
+                tile: Tile::Road,
+            },
+        )
+    }
+
+    pub fn spawn_tree(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::Tree,
+                opacity: 127,
+                solid: (),
             },
         )
     }
@@ -120,6 +140,15 @@ impl World {
                 health: Meter::new_full(4),
                 resurrects_in: Meter::new_full(10),
                 bump_damage: 1..=3,
+            },
+        )
+    }
+
+    pub fn spawn_car_part(&mut self, coord: ICoord, ch: char) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::Car(ch),
             },
         )
     }

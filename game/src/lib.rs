@@ -1,5 +1,5 @@
 pub use direction::{CardinalDirection, Direction};
-pub use entity_table::{entity_data, entity_update, ComponentTable, Entity};
+pub use entity_table::{ComponentTable, Entity, entity_data, entity_update};
 pub use grid_2d::{Grid, ICoord, UCoord};
 pub use grid_search_cardinal::distance_map;
 pub use line_2d::{self, coords_between, coords_between_cardinal};
@@ -11,7 +11,7 @@ pub use spatial_table::UpdateError;
 use std::time::Duration;
 
 pub use visible_area_detection::{
-    vision_distance::Circle, CellVisibility, Light, VisibilityGrid, World as VisibleWorld,
+    CellVisibility, Light, VisibilityGrid, World as VisibleWorld, vision_distance::Circle,
 };
 
 mod terrain;
@@ -22,9 +22,9 @@ pub mod witness;
 
 use ai::{Agent, AiContext};
 use world::{
+    World,
     data::{DoorState, EntityData, EntityUpdate},
     spatial::Layers,
-    World,
 };
 pub use world::{
     data::{Item, Layer, Location, Meter, NpcType, Tile},
@@ -52,6 +52,12 @@ pub const MAX_ORGANS: usize = 8;
 pub enum ExternalEvent {
     Death,
     Leave,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub enum Mode {
+    Driving,
+    Walking,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -197,7 +203,7 @@ struct Level {
     agents: ComponentTable<Agent>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Game {
     world: World,
     visibility_grid: VisibilityGrid<VisibleCellData>,
@@ -211,6 +217,7 @@ pub struct Game {
     external_events: Vec<ExternalEvent>,
     turn_count: u64,
     game_over: bool,
+    mode: Mode,
 }
 
 impl Game {
@@ -240,10 +247,15 @@ impl Game {
             external_events: Default::default(),
             turn_count: 0,
             game_over: false,
+            mode: Mode::Walking,
         };
         game.systems();
         game.update_visibility();
         game
+    }
+
+    pub fn mode(&self) -> Mode {
+        self.mode
     }
 
     pub fn message_log(&self) -> &[Message] {
@@ -261,7 +273,7 @@ impl Game {
                 update_fn,
             );
         } else {
-            let distance = Circle::new_squared(200);
+            let distance = Circle::new_squared(300);
             self.visibility_grid.update_custom(
                 Rgb24::new_grey(0),
                 &self.world,

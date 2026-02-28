@@ -1,18 +1,16 @@
 use crate::{
     colours,
     controls::{AppInput, Controls},
-    game_instance::{
-        item_string_for_menu, message_to_text, GameInstance, GameInstanceStorable, Mode,
-    },
+    game_instance::{GameInstance, GameInstanceStorable, item_string_for_menu, message_to_text},
     text,
 };
 use chargrid::{self, border::BorderStyle, control_flow::*, menu, prelude::*};
 use game::{
-    witness::{self, Witness},
     Config as GameConfig, GameOverReason, Item, Menu as GameMenu, MenuChoice as GameMenuChoice,
     Victory,
+    witness::{self, Witness},
 };
-use general_storage_static::{self as storage, format, StaticStorage as Storage};
+use general_storage_static::{self as storage, StaticStorage as Storage, format};
 use rand::{Rng, SeedableRng};
 use rand_isaac::Isaac64Rng;
 use serde::{Deserialize, Serialize};
@@ -368,21 +366,17 @@ impl GameLoopData {
         self.storage.save_config(&self.config);
     }
 
-    fn render(&self, ctx: Ctx, fb: &mut FrameBuffer, mode: Mode) {
+    fn render(&self, ctx: Ctx, fb: &mut FrameBuffer) {
         if let Some(instance) = self.instance.as_ref() {
             let offset = self
                 .screen_shake
                 .map(|s| s.offset)
                 .unwrap_or(ICoord::new(0, 0));
-            instance.render(ctx, fb, self.cursor, mode, offset);
-            match mode {
-                Mode::Normal => {
-                    let colour = colours::NORMAL_MODE.to_rgba32(127);
-                    if let Some(cursor) = self.cursor {
-                        let render_cell = RenderCell::default().with_background(colour);
-                        fb.set_cell_relative_to_ctx(ctx, cursor, 50, render_cell);
-                    }
-                }
+            instance.render(ctx, fb, self.cursor, offset);
+            let colour = colours::CURSOR.to_rgba32(127);
+            if let Some(cursor) = self.cursor {
+                let render_cell = RenderCell::default().with_background(colour);
+                fb.set_cell_relative_to_ctx(ctx, cursor, 50, render_cell);
             }
         }
     }
@@ -488,7 +482,7 @@ impl Component for GameInstanceComponent {
     type State = GameLoopData;
 
     fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
-        state.render(ctx, fb, Mode::Normal);
+        state.render(ctx, fb);
     }
 
     fn update(&mut self, state: &mut Self::State, _ctx: Ctx, event: Event) -> Self::Output {
@@ -512,7 +506,7 @@ fn menu_style<T: 'static>(menu: AppCF<T>) -> AppCF<T> {
         .fill(colours::MENU_BACKGROUND.to_rgba32(255))
         .centre()
         .overlay_tint(
-            render_state(|state: &State, ctx, fb| state.render(ctx, fb, Mode::Normal)),
+            render_state(|state: &State, ctx, fb| state.render(ctx, fb)),
             chargrid::core::TintDim(63),
             60,
         )
@@ -551,8 +545,8 @@ fn title_decorate<T: 'static>(cf: AppCF<T>) -> AppCF<T> {
 }
 
 fn main_menu() -> AppCF<MainMenuEntry> {
-    use menu::builder::*;
     use MainMenuEntry::*;
+    use menu::builder::*;
     let mut builder = menu_builder().vi_keys();
     let mut add_item = |entry, name, ch: char| {
         let identifier =
@@ -728,8 +722,8 @@ enum PauseMenuEntry {
 }
 
 fn pause_menu() -> AppCF<PauseMenuEntry> {
-    use menu::builder::*;
     use PauseMenuEntry::*;
+    use menu::builder::*;
     let mut builder = menu_builder().vi_keys();
     let mut add_item = |entry, name, ch: char| {
         let identifier =

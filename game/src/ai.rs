@@ -1,24 +1,24 @@
 use crate::{
-    world::data::{Disposition, Npc, NpcMovement},
     Input, World,
+    world::data::{Disposition, Npc, NpcMovement},
 };
 use coord_2d::{ICoord, UCoord};
 use direction::CardinalDirection;
 use entity_table::Entity;
 use grid_2d::Grid;
 use grid_search_cardinal::{
+    CanEnter, Path,
     best::{BestSearch, Context as BestSearchContext, Depth, Step},
     distance_map::{
         DistanceMap, PopulateContext as DistanceMapPopulateContext,
         SearchContext as DistanceMapSearchContext,
     },
-    point_to_point::{expand, Context as PointToPointSearchContext, NoPath},
-    CanEnter, Path,
+    point_to_point::{Context as PointToPointSearchContext, NoPath, expand},
 };
 use line_2d::LineSegment;
-use rand::{prelude::IndexedRandom, Rng};
+use rand::{Rng, prelude::IndexedRandom};
 use serde::{Deserialize, Serialize};
-use shadowcast::{vision_distance, Context as ShadowcastContext, InputGrid, VisionDistance};
+use shadowcast::{Context as ShadowcastContext, InputGrid, VisionDistance, vision_distance};
 use std::collections::HashMap;
 
 const FLEE_DISTANCE: u32 = 10;
@@ -93,6 +93,28 @@ pub struct AiContext {
     item_distance: DistanceMap,
     wander_path: Path,
     shadowcast: ShadowcastContext<u8>,
+}
+
+impl std::fmt::Debug for AiContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AiContext")
+            .field("best_search_context", &"TODO")
+            .field("point_to_point_search_context", &"TODO")
+            .field(
+                "distance_map_populate_context",
+                &self.distance_map_populate_context,
+            )
+            .field(
+                "distance_map_search_context",
+                &self.distance_map_search_context,
+            )
+            .field("player_approach", &self.player_approach)
+            .field("player_flee", &self.player_flee)
+            .field("item_distance", &self.item_distance)
+            .field("wander_path", &self.wander_path)
+            .field("shadowcast", &self.shadowcast)
+            .finish()
+    }
 }
 
 impl AiContext {

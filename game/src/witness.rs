@@ -53,19 +53,11 @@ pub struct Menu {
 }
 
 #[derive(Debug)]
-pub struct FireEquipped(Private);
-
-#[derive(Debug)]
-pub struct FireBody(Private);
-
-#[derive(Debug)]
 pub enum Witness {
     Running(Running),
     GameOver(GameOverReason),
     Win(Win),
     Menu(Menu),
-    FireEquipped(FireEquipped),
-    FireBody(FireBody),
 }
 
 impl Witness {
@@ -90,13 +82,9 @@ pub enum ControlInput {
     Wait,
 }
 
-pub fn new_game<R: Rng>(
-    config: &Config,
-    victories: Vec<crate::Victory>,
-    base_rng: &mut R,
-) -> (Game, Running) {
+pub fn new_game<R: Rng>(config: &Config, base_rng: &mut R) -> (Game, Running) {
     let g = Game {
-        inner_game: crate::Game::new(config, victories, base_rng),
+        inner_game: crate::Game::new(config, base_rng),
     };
     (g, Running(Private))
 }
@@ -140,27 +128,9 @@ impl Running {
         game.witness_handle_input(Input::Wait, private)
     }
 
-    pub fn unequip(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
-        let Self(private) = self;
-        game.witness_handle_input(Input::Unequip, private)
-    }
-
-    pub fn reload(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
-        let Self(private) = self;
-        game.witness_handle_input(Input::Reload, private)
-    }
-
     pub fn get(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
         let Self(private) = self;
         game.witness_handle_input(Input::Get, private)
-    }
-
-    pub fn fire_equipped(self) -> Witness {
-        Witness::FireEquipped(FireEquipped(self.0))
-    }
-
-    pub fn fire_body(self) -> Witness {
-        Witness::FireBody(FireBody(self.0))
     }
 
     pub fn menu(self, menu: GameMenu) -> Witness {
@@ -232,25 +202,5 @@ impl Game {
 
     pub fn take_external_events(&mut self) -> Vec<ExternalEvent> {
         self.inner_game.take_external_events()
-    }
-}
-
-impl FireEquipped {
-    pub fn cancel(self) -> Witness {
-        Witness::Running(Running(self.0))
-    }
-
-    pub fn commit(self, game: &mut Game, coord: ICoord) -> (Witness, Result<(), ActionError>) {
-        game.witness_handle_input(Input::FireEquipped(coord), self.0)
-    }
-}
-
-impl FireBody {
-    pub fn cancel(self) -> Witness {
-        Witness::Running(Running(self.0))
-    }
-
-    pub fn commit(self, game: &mut Game, coord: ICoord) -> (Witness, Result<(), ActionError>) {
-        game.witness_handle_input(Input::FireBody(coord), self.0)
     }
 }

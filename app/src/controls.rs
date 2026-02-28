@@ -8,15 +8,10 @@ use std::collections::BTreeMap;
 pub enum AppInput {
     Direction(CardinalDirection),
     Wait,
-    FireEquipped,
-    FireBody,
     MessageLog,
     Get,
     DropItem,
     ApplyItem,
-    UnequipItem,
-    Reload,
-    ViewOrgans,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -32,15 +27,10 @@ impl Default for Controls {
             KeyboardInput::Up => AppInput::Direction(CardinalDirection::North),
             KeyboardInput::Down => AppInput::Direction(CardinalDirection::South),
             KeyboardInput::Char(' ') => AppInput::Wait,
-            KeyboardInput::Char('f') => AppInput::FireEquipped,
-            KeyboardInput::Char('c') => AppInput::FireBody,
             KeyboardInput::Char('m') => AppInput::MessageLog,
             KeyboardInput::Char('g') => AppInput::Get,
             KeyboardInput::Char('d') => AppInput::DropItem,
             KeyboardInput::Char('a') => AppInput::ApplyItem,
-            KeyboardInput::Char('u') => AppInput::UnequipItem,
-            KeyboardInput::Char('r') => AppInput::Reload,
-            KeyboardInput::Char('o') => AppInput::ViewOrgans,
         ];
         Self { keys }
     }

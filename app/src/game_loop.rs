@@ -2,22 +2,19 @@ use crate::{
     colours,
     controls::{AppInput, Controls},
     game_instance::{
-        item_string_for_menu, message_to_text, organ_string_for_menu, GameInstance,
-        GameInstanceStorable, Mode,
+        item_string_for_menu, message_to_text, GameInstance, GameInstanceStorable, Mode,
     },
-    image::Images,
     text,
 };
 use chargrid::{self, border::BorderStyle, control_flow::*, menu, prelude::*};
 use game::{
-    witness::{self, FireBody, FireEquipped, Running, Witness},
-    Config as GameConfig, ExternalEvent, GameOverReason, Item, Menu as GameMenu,
-    MenuChoice as GameMenuChoice, Victory, WhichHand,
+    witness::{self, Witness},
+    Config as GameConfig, GameOverReason, Item, Menu as GameMenu, MenuChoice as GameMenuChoice,
+    Victory,
 };
 use general_storage_static::{self as storage, format, StaticStorage as Storage};
 use rand::{Rng, SeedableRng};
 use rand_isaac::Isaac64Rng;
-use rgb_int::Rgb24;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -265,10 +262,9 @@ impl AppStorage {
 fn new_game(
     rng_seed_source: &mut RngSeedSource,
     game_config: &GameConfig,
-    victories: Vec<Victory>,
 ) -> (GameInstance, witness::Running) {
     let mut rng = Isaac64Rng::seed_from_u64(rng_seed_source.next_seed());
-    GameInstance::new(game_config, victories, &mut rng)
+    GameInstance::new(game_config, &mut rng)
 }
 
 #[derive(Clone, Copy)]
@@ -284,7 +280,6 @@ pub struct GameLoopData {
     storage: AppStorage,
     rng_seed_source: RngSeedSource,
     config: Config,
-    images: Images,
     cursor: Option<ICoord>,
     screen_shake: Option<ScreenShake>,
 }
@@ -308,8 +303,7 @@ impl GameLoopData {
             }
             None => {
                 if force_new_game {
-                    let (instance, running) =
-                        new_game(&mut rng_seed_source, &game_config, config.victories.clone());
+                    let (instance, running) = new_game(&mut rng_seed_source, &game_config);
                     (
                         Some(instance),
                         GameLoopState::Playing(running.into_witness()),
@@ -334,7 +328,6 @@ impl GameLoopData {
                 storage,
                 rng_seed_source,
                 config,
-                images: Images::new(),
                 cursor: None,
                 screen_shake: None,
             },
@@ -366,8 +359,7 @@ impl GameLoopData {
     }
 
     fn new_game(&mut self) -> witness::Running {
-        let victories = self.config.victories.clone();
-        let (instance, running) = new_game(&mut self.rng_seed_source, &self.game_config, victories);
+        let (instance, running) = new_game(&mut self.rng_seed_source, &self.game_config);
         self.instance = Some(instance);
         running
     }
@@ -391,19 +383,6 @@ impl GameLoopData {
                         fb.set_cell_relative_to_ctx(ctx, cursor, 50, render_cell);
                     }
                 }
-                Mode::Aiming => {
-                    if let Some(cursor) = self.cursor {
-                        let colour = colours::AIMING_MODE.to_rgba32(127);
-                        let render_cell = RenderCell::default().with_background(colour);
-                        let instance = self.instance.as_ref().unwrap();
-                        for coord in line_2d::coords_between(
-                            instance.game.inner_ref().player_coord(),
-                            cursor,
-                        ) {
-                            fb.set_cell_relative_to_ctx(ctx, coord, 50, render_cell);
-                        }
-                    }
-                }
             }
         }
     }
@@ -424,19 +403,8 @@ impl GameLoopData {
                             }
                             AppInput::Wait => running.wait(&mut instance.game),
                             AppInput::Get => running.get(&mut instance.game),
-                            AppInput::FireEquipped => {
-                                self.cursor = Some(instance.game.inner_ref().player_coord());
-                                (running.fire_equipped(), Ok(()))
-                            }
-                            AppInput::FireBody => {
-                                self.cursor = Some(instance.game.inner_ref().player_coord());
-                                (running.fire_body(), Ok(()))
-                            }
                             AppInput::MessageLog => {
                                 return GameLoopState::MessageLog(running);
-                            }
-                            AppInput::ViewOrgans => {
-                                return GameLoopState::ViewOrgans(running);
                             }
                             AppInput::DropItem => (
                                 drop_menu_witness(instance.game.inner_ref(), running),
@@ -446,8 +414,6 @@ impl GameLoopData {
                                 apply_menu_witness(instance.game.inner_ref(), running),
                                 Ok(()),
                             ),
-                            AppInput::UnequipItem => running.unequip(&mut instance.game),
-                            AppInput::Reload => running.reload(&mut instance.game),
                         };
                         witness
                     }
@@ -477,20 +443,6 @@ impl GameLoopData {
                         Some(screen_shake)
                     }
                 });
-                for external_event in instance.game.take_external_events() {
-                    if let ExternalEvent::Explosion(_) = external_event {
-                        let mut rng = Isaac64Rng::from_rng(&mut rand::rng());
-                        let screen_shake = ScreenShake {
-                            countdown: 2,
-                            offset: if rng.random() {
-                                ICoord::new(-1, 0)
-                            } else {
-                                ICoord::new(1, 0)
-                            },
-                        };
-                        self.screen_shake = Some(screen_shake);
-                    }
-                }
                 witness
             }
             _ => Witness::Running(running),
@@ -508,7 +460,6 @@ fn drop_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
     let menu = GameMenu {
         text: "Select an item to drop (escape to cancel):".to_string(),
         choices,
-        image: None,
     };
     running.menu(menu)
 }
@@ -520,7 +471,6 @@ fn apply_menu_witness(game: &game::Game, running: witness::Running) -> Witness {
     let menu = GameMenu {
         text: "Select an item to apply (escape to cancel):".to_string(),
         choices,
-        image: None,
     };
     running.menu(menu)
 }
@@ -531,7 +481,6 @@ pub enum GameLoopState {
     MainMenu,
     Help(witness::Running),
     MessageLog(witness::Running),
-    ViewOrgans(witness::Running),
 }
 
 impl Component for GameInstanceComponent {
@@ -549,126 +498,6 @@ impl Component for GameInstanceComponent {
         } else {
             state.update(event, running)
         }
-    }
-
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
-        ctx.bounding_box.size()
-    }
-}
-
-struct GameInstanceFireEquippedComponent(Option<FireEquipped>);
-
-struct Cancel;
-
-impl Component for GameInstanceFireEquippedComponent {
-    type Output = Option<(Result<ICoord, Cancel>, FireEquipped)>;
-    type State = GameLoopData;
-
-    fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
-        state.render(ctx, fb, Mode::Aiming);
-    }
-
-    fn update(&mut self, state: &mut Self::State, _ctx: Ctx, event: Event) -> Self::Output {
-        let instance = state.instance.as_mut().unwrap();
-        if event.is_escape() {
-            return Some((Err(Cancel), self.0.take().unwrap()));
-        }
-        match event {
-            Event::Input(input) => {
-                if let Input::Mouse(MouseInput::MouseMove { coord, .. }) = input {
-                    if coord.is_valid(instance.game.inner_ref().world_size()) {
-                        state.cursor = Some(coord);
-                    }
-                }
-                if let Input::Keyboard(input::keys::RETURN) = input {
-                    if let Some(coord) = state.cursor {
-                        return Some((Ok(coord), self.0.take().unwrap()));
-                    }
-                }
-                if let Input::Mouse(MouseInput::MousePress { coord, .. }) = input {
-                    return Some((Ok(coord), self.0.take().unwrap()));
-                }
-                if let Input::Keyboard(key) = input {
-                    let delta = match key {
-                        KeyboardInput::Left => ICoord::new(-1, 0),
-                        KeyboardInput::Right => ICoord::new(1, 0),
-                        KeyboardInput::Up => ICoord::new(0, -1),
-                        KeyboardInput::Down => ICoord::new(0, 1),
-                        _ => ICoord::new(0, 0),
-                    };
-                    if let Some(cursor) = state.cursor {
-                        let new_cursor = cursor + delta;
-                        if new_cursor.is_valid(instance.game.inner_ref().world_size()) {
-                            state.cursor = Some(new_cursor);
-                        }
-                    }
-                }
-            }
-            Event::Tick(since_previous) => {
-                Running::cheat().tick(&mut instance.game, since_previous, &state.game_config);
-            }
-            _ => (),
-        }
-        None
-    }
-
-    fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
-        ctx.bounding_box.size()
-    }
-}
-
-struct GameInstanceFireBodyComponent(Option<FireBody>);
-
-impl Component for GameInstanceFireBodyComponent {
-    type Output = Option<(Result<ICoord, Cancel>, FireBody)>;
-    type State = GameLoopData;
-
-    fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
-        state.render(ctx, fb, Mode::Aiming);
-    }
-
-    fn update(&mut self, state: &mut Self::State, _ctx: Ctx, event: Event) -> Self::Output {
-        let instance = state.instance.as_mut().unwrap();
-        if event.is_escape() {
-            return Some((Err(Cancel), self.0.take().unwrap()));
-        }
-        match event {
-            Event::Input(input) => {
-                if let Input::Mouse(MouseInput::MouseMove { coord, .. }) = input {
-                    if coord.is_valid(instance.game.inner_ref().world_size()) {
-                        state.cursor = Some(coord);
-                    }
-                }
-                if let Input::Keyboard(input::keys::RETURN) = input {
-                    if let Some(coord) = state.cursor {
-                        return Some((Ok(coord), self.0.take().unwrap()));
-                    }
-                }
-                if let Input::Mouse(MouseInput::MousePress { coord, .. }) = input {
-                    return Some((Ok(coord), self.0.take().unwrap()));
-                }
-                if let Input::Keyboard(key) = input {
-                    let delta = match key {
-                        KeyboardInput::Left => ICoord::new(-1, 0),
-                        KeyboardInput::Right => ICoord::new(1, 0),
-                        KeyboardInput::Up => ICoord::new(0, -1),
-                        KeyboardInput::Down => ICoord::new(0, 1),
-                        _ => ICoord::new(0, 0),
-                    };
-                    if let Some(cursor) = state.cursor {
-                        let new_cursor = cursor + delta;
-                        if new_cursor.is_valid(instance.game.inner_ref().world_size()) {
-                            state.cursor = Some(new_cursor);
-                        }
-                    }
-                }
-            }
-            Event::Tick(since_previous) => {
-                Running::cheat().tick(&mut instance.game, since_previous, &state.game_config);
-            }
-            _ => (),
-        }
-        None
     }
 
     fn size(&self, _state: &Self::State, ctx: Ctx) -> UCoord {
@@ -869,65 +698,6 @@ fn message_log(reason: MessageLogReason) -> AppCF<()> {
     }))
 }
 
-struct ViewOrgans;
-impl ViewOrgans {
-    const SIZE: UCoord = UCoord::new_u16(70, 14);
-}
-impl Component for ViewOrgans {
-    type Output = Option<()>;
-    type State = GameLoopData;
-
-    fn render(&self, state: &Self::State, ctx: Ctx, fb: &mut FrameBuffer) {
-        use chargrid::text::*;
-        let ctx = ctx.set_size(Self::SIZE).add_xy(1, 1);
-        Text::new(vec![StyledString {
-            string: "Viewing your organs. Press any key to return to the game.".to_string(),
-            style: Style::plain_text().with_foreground(Rgba32::new_grey(127)),
-        }])
-        .wrap_word()
-        .render(&(), ctx, fb);
-        let instance = state.instance.as_ref().unwrap();
-        let ctx = ctx.add_y(2);
-        let organs = instance.game.inner_ref().player_organs();
-        for i in 0..game::MAX_ORGANS {
-            let s = if let Some(organ) = organs.get(i) {
-                let string = organ_string_for_menu(&organ.organ);
-                let string = if organ.active {
-                    string
-                } else {
-                    format!("INACTIVE {string}")
-                };
-                StyledString {
-                    string,
-                    style: Style::plain_text(),
-                }
-            } else {
-                StyledString {
-                    string: "(empty)".to_string(),
-                    style: Style::plain_text().with_foreground(Rgb24::new_grey(127).to_rgba32(255)),
-                }
-            };
-            s.render(&(), ctx.add_y(i as i32), fb);
-        }
-    }
-
-    fn update(&mut self, _state: &mut Self::State, _ctx: Ctx, event: Event) -> Self::Output {
-        if event.keyboard_input().is_some() {
-            Some(())
-        } else {
-            None
-        }
-    }
-
-    fn size(&self, _state: &Self::State, _ctx: Ctx) -> UCoord {
-        Self::SIZE
-    }
-}
-
-fn view_organs() -> AppCF<()> {
-    menu_style(cf(ViewOrgans))
-}
-
 fn main_menu_loop() -> AppCF<MainMenuOutput> {
     use MainMenuEntry::*;
     title_decorate(main_menu().add_offset(ICoord::new(34, 12))).repeat_unit(
@@ -1035,32 +805,6 @@ fn game_instance_component(_running: witness::Running) -> AppCF<GameLoopState> {
     cf(GameInstanceComponent).some().no_peek()
 }
 
-fn fire_equipped(fire_equipped: FireEquipped) -> AppCF<Witness> {
-    cf(GameInstanceFireEquippedComponent(Some(fire_equipped)))
-        .no_peek()
-        .map_side_effect(|(result, fire_equipped), state: &mut State| match result {
-            Ok(coord) => {
-                let instance = state.instance.as_mut().unwrap();
-                let (witness, _) = fire_equipped.commit(&mut instance.game, coord);
-                witness
-            }
-            Err(Cancel) => fire_equipped.cancel(),
-        })
-}
-
-fn fire_body(fire_body: FireBody) -> AppCF<Witness> {
-    cf(GameInstanceFireBodyComponent(Some(fire_body)))
-        .no_peek()
-        .map_side_effect(|(result, fire_body), state: &mut State| match result {
-            Ok(coord) => {
-                let instance = state.instance.as_mut().unwrap();
-                let (witness, _) = fire_body.commit(&mut instance.game, coord);
-                witness
-            }
-            Err(Cancel) => fire_body.cancel(),
-        })
-}
-
 fn win(win: game::Win) -> AppCF<()> {
     let text = match win {
         game::Win::Good => text::win(MAIN_MENU_TEXT_WIDTH),
@@ -1088,25 +832,13 @@ fn game_over(reason: GameOverReason) -> AppCF<()> {
 fn apply_item_description(item: Item) -> String {
     use Item::*;
     match item {
-        Stimpack => "Consume to increase health".to_string(),
-        Antidote => "Consume to decrease poison".to_string(),
-        BloodVialEmpty => "Fill with blood (must be standing on corpse)".to_string(),
-        BloodVialFull => "Consume to increase oxygen".to_string(),
-        Battery => "Consume to increase power (requires CyberCore™)".to_string(),
-        Food => "Consume to gain food".to_string(),
-        AntiRads => "Consume to reduce radiation".to_string(),
-        OrganContainer(Some(_)) => "Dump contents".to_string(),
-        OrganContainer(None) => "Harvest organ (must be standing on corpse)".to_string(),
-        Pistol => "Equip weapon (requires non-claw hand)".to_string(),
-        Shotgun | RocketLauncher => "Equip weapon (requires two non-claw hands)".to_string(),
-        PistolAmmo | ShotgunAmmo | Rocket => "Load into current weapon".to_string(),
+        MedKit => "Apply to recover health.".to_string(),
     }
 }
 
 fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
     match choice {
         GameMenuChoice::Empty => "(empty)".to_string(),
-        GameMenuChoice::Dummy => panic!(),
         GameMenuChoice::DropItem(i) => {
             if let Some(item) = game.inventory_item(i) {
                 item_string_for_menu(item)
@@ -1125,52 +857,12 @@ fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
                 "(empty)".to_string()
             }
         }
-        GameMenuChoice::HarvestOrgan { organ, .. } => organ_string_for_menu(&organ),
-        GameMenuChoice::EquipWeaponInHand { which_hand, .. } => match which_hand {
-            WhichHand::Left => "Left Hand".to_string(),
-            WhichHand::Right => "Right Hand".to_string(),
-        },
-        GameMenuChoice::UnequipWhichHand(which_hand) => match which_hand {
-            WhichHand::Left => "Left Hand".to_string(),
-            WhichHand::Right => "Right Hand".to_string(),
-        },
-        GameMenuChoice::BuyItem { item, .. } => {
-            format!("{} - {} CCz", item_string_for_menu(item), item.price())
-        }
-        GameMenuChoice::ClinicBuy { .. } => "Buy Organ".to_string(),
-        GameMenuChoice::ClinicRemove => "Remove Organ".to_string(),
-        GameMenuChoice::ClinicInstallFromContainer => "Install Organ from Container".to_string(),
-        GameMenuChoice::ClinicBuyOrgan { organ, .. } => format!(
-            "{} - {} CCz",
-            organ_string_for_menu(&organ),
-            organ.player_buy_price()
-        ),
-        GameMenuChoice::ClinicInstallFromContainerOrgan { organ, .. } => {
-            format!(
-                "{} - {} CCz",
-                organ_string_for_menu(&organ),
-                organ.container_install_cost()
-            )
-        }
-        GameMenuChoice::ClinicRemoveOrgan { organ, .. } => {
-            let price = organ.remove_price();
-            if price < 0 {
-                format!(
-                    "{} - I'll pay you {} CCz",
-                    organ_string_for_menu(&organ),
-                    -price
-                )
-            } else {
-                format!("{} - {} CCz", organ_string_for_menu(&organ), price)
-            }
-        }
     }
 }
 
 const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
 
 fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
-    use chargrid::align::*;
     use game::MenuChoice;
     use menu::builder::*;
     let game_menu = menu_witness.menu.clone();
@@ -1203,25 +895,7 @@ fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
             .build_cf()
             .menu_harness()
             .with_title_vertical(title, 2);
-        if let Some(menu_image) = menu_witness.menu.image {
-            menu.add_x(2)
-                .align(Alignment {
-                    x: AlignmentX::Left,
-                    y: AlignmentY::Centre,
-                })
-                .add_x(4)
-                .overlay(
-                    render_state(move |state: &State, ctx, fb| {
-                        state
-                            .images
-                            .image_from_menu_image(menu_image)
-                            .render(ctx, fb);
-                    }),
-                    1,
-                )
-        } else {
-            menu_style(menu)
-        }
+        menu_style(menu)
     });
     menu_cf.and_then_side_effect(|result, state: &mut State| {
         let witness = match result {
@@ -1255,10 +929,6 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
                 Witness::GameOver(reason) => game_over(reason).map_val(|| MainMenu).continue_(),
                 Witness::Win(win_) => win(win_.win).map_val(|| MainMenu).continue_(),
                 Witness::Menu(menu_) => game_menu(menu_).map(Playing).continue_(),
-                Witness::FireEquipped(fire_equipped_) => {
-                    fire_equipped(fire_equipped_).map(Playing).continue_()
-                }
-                Witness::FireBody(fire_body_) => fire_body(fire_body_).map(Playing).continue_(),
             },
             Paused(running) => pause(running).map(|pause_output| match pause_output {
                 PauseOutput::ContinueGame { running } => {
@@ -1277,9 +947,6 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
                 .map(|()| GameLoopState::Playing(running.into_witness()))
                 .continue_(),
             MessageLog(running) => message_log(MessageLogReason::Gameplay)
-                .map(|()| GameLoopState::Playing(running.into_witness()))
-                .continue_(),
-            ViewOrgans(running) => view_organs()
                 .map(|()| GameLoopState::Playing(running.into_witness()))
                 .continue_(),
         })

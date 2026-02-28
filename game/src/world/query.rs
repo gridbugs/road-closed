@@ -8,27 +8,6 @@ use entity_table::Entity;
 use rand::{prelude::IndexedRandom, seq::SliceRandom, Rng};
 
 impl World {
-    pub fn stairs_up_or_exit_coord(&self) -> Option<ICoord> {
-        self.components
-            .stairs_up
-            .entities()
-            .next()
-            .and_then(|entity| self.spatial_table.coord_of(entity))
-            .or_else(|| {
-                self.components
-                    .exit
-                    .entities()
-                    .next()
-                    .and_then(|entity| self.spatial_table.coord_of(entity))
-            })
-    }
-    pub fn stairs_down_coord(&self) -> Option<ICoord> {
-        self.components
-            .stairs_down
-            .entities()
-            .next()
-            .and_then(|entity| self.spatial_table.coord_of(entity))
-    }
     pub fn entity_coord(&self, entity: Entity) -> Option<ICoord> {
         self.spatial_table.coord_of(entity)
     }
@@ -161,48 +140,6 @@ impl World {
         None
     }
 
-    pub fn nearest_non_poison_coord(&self, start: ICoord) -> Option<ICoord> {
-        use std::collections::{HashSet, VecDeque};
-        let layers = self.spatial_table.layers_at_checked(start);
-        if layers.feature.is_none() {
-            if let Some(e) = layers.floor {
-                if !self.components.floor_poison.contains(e) {
-                    return Some(start);
-                }
-            }
-        }
-        let mut seen = HashSet::new();
-        seen.insert(start);
-        let mut queue = VecDeque::new();
-        queue.push_back(start);
-        let mut rng = rand::rng();
-        while let Some(coord) = queue.pop_front() {
-            let mut dirs = CardinalDirection::all().collect::<Vec<_>>();
-            dirs.shuffle(&mut rng);
-            for d in dirs {
-                let coord = coord + d.coord();
-                if seen.insert(coord) {
-                    if let Some(layers) = self.spatial_table.layers_at(coord) {
-                        if layers.feature.is_none() {
-                            if let Some(e) = layers.floor {
-                                if !self.components.floor_poison.contains(e) {
-                                    return Some(coord);
-                                }
-                            }
-                            queue.push_back(coord);
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    pub fn num_player_claws(&self) -> usize {
-        let player = self.components.player.entities().next().unwrap();
-        self.components.organs.get(player).unwrap().num_claws()
-    }
-
     pub fn player_inventory_item_index(&self, item: Item) -> Option<usize> {
         let player = self.components.player.entities().next().unwrap();
         let inventory = self.components.inventory.get(player).unwrap();
@@ -232,64 +169,6 @@ impl World {
         } else {
             true
         }
-    }
-
-    pub fn player_has_vampiric_organ(&self) -> bool {
-        let player_entity = self.components.player.entities().next().unwrap();
-        let organs = self.components.organs.get(player_entity).unwrap();
-        for organ in organs.organs().iter().flatten() {
-            if organ.traits.vampiric {
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn player_has_cyber_core(&self) -> bool {
-        let player_entity = self.components.player.entities().next().unwrap();
-        let organs = self.components.organs.get(player_entity).unwrap();
-        for organ in organs.organs().iter().flatten() {
-            if organ.type_ == OrganType::CyberCore {
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn player_organs(&self) -> Vec<PlayerOrgan> {
-        let mut ret = Vec::new();
-        let player_entity = self.components.player.entities().next().unwrap();
-        let organs = self.components.organs.get(player_entity).unwrap();
-        let satiation = self.components.satiation.get(player_entity).unwrap();
-        let power = if self.player_has_cyber_core() {
-            self.components.power.get(player_entity).unwrap().current()
-        } else {
-            0
-        };
-        for organ in organs.organs().iter().flatten() {
-            let mut active = true;
-            if organ.traits.vampiric && satiation.current() == 0 {
-                active = false;
-            }
-            if organ.cybernetic && power == 0 {
-                active = false;
-            }
-            ret.push(PlayerOrgan {
-                organ: *organ,
-                active,
-            });
-        }
-        ret
-    }
-
-    pub fn active_player_organs(&self) -> Vec<Organ> {
-        let mut ret = Vec::new();
-        for po in self.player_organs() {
-            if po.active {
-                ret.push(po.organ);
-            }
-        }
-        ret
     }
 
     pub fn line_distance_stopping_at_solid(&self, from: ICoord, to: ICoord) -> Option<usize> {
@@ -323,18 +202,4 @@ impl World {
             .collect::<Vec<_>>();
         candidates.choose(rng).copied()
     }
-
-    pub fn is_boss_dead(&self) -> bool {
-        for entity in self.components.boss.entities() {
-            if self.components.corpse.contains(entity) {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-pub struct PlayerOrgan {
-    pub organ: Organ,
-    pub active: bool,
 }

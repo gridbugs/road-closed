@@ -148,11 +148,6 @@ impl AiContext {
                 self.distance_map_populate_context.add(coord);
             }
         }
-        for item_entity in world.components.money_item.entities() {
-            if let Some(coord) = world.spatial_table.coord_of(item_entity) {
-                self.distance_map_populate_context.add(coord);
-            }
-        }
         self.distance_map_populate_context.populate_approach(
             &WorldCanEnterIgnoreCharacters {
                 world,

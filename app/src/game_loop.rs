@@ -1,13 +1,13 @@
 use crate::{
     colours,
-    controls::{AppInput, Controls},
+    controls::{AppInput, AppInputDriving, Controls},
     game_instance::{GameInstance, GameInstanceStorable, item_string_for_menu, message_to_text},
     text,
 };
 use chargrid::{self, border::BorderStyle, control_flow::*, menu, prelude::*};
 use game::{
     Config as GameConfig, GameOverReason, Item, Menu as GameMenu, MenuChoice as GameMenuChoice,
-    Victory,
+    Mode, Victory,
     witness::{self, Witness},
 };
 use general_storage_static::{self as storage, StaticStorage as Storage, format};
@@ -386,45 +386,64 @@ impl GameLoopData {
         let witness = match event {
             Event::Input(input) => {
                 self.cursor = None;
-                if let Some(app_input) = self.controls.get(input) {
-                    if instance.game.inner_ref().is_gameplay_blocked() {
-                        running.into_witness()
-                    } else {
-                        let (witness, _action_result) = match app_input {
-                            AppInput::Direction(direction) => {
-                                let witness = running.walk(&mut instance.game, direction);
+                match instance.game.inner_ref().mode() {
+                    Mode::Driving => {
+                        if let Some(app_input) = self.controls.get_driving(input) {
+                            let (witness, _action_result) = match app_input {
+                                AppInputDriving::ContinueDriving => {
+                                    running.continue_driving(&mut instance.game)
+                                }
+                                AppInputDriving::StopDriving => {
+                                    running.stop_driving(&mut instance.game)
+                                }
+                            };
+                            witness
+                        } else {
+                            running.into_witness()
+                        }
+                    }
+                    Mode::Walking => {
+                        if let Some(app_input) = self.controls.get_walking(input) {
+                            if instance.game.inner_ref().is_gameplay_blocked() {
+                                running.into_witness()
+                            } else {
+                                let (witness, _action_result) = match app_input {
+                                    AppInput::Direction(direction) => {
+                                        let witness = running.walk(&mut instance.game, direction);
+                                        witness
+                                    }
+                                    AppInput::Wait => running.wait(&mut instance.game),
+                                    AppInput::Get => running.get(&mut instance.game),
+                                    AppInput::MessageLog => {
+                                        return GameLoopState::MessageLog(running);
+                                    }
+                                    AppInput::DropItem => (
+                                        drop_menu_witness(instance.game.inner_ref(), running),
+                                        Ok(()),
+                                    ),
+                                    AppInput::ApplyItem => (
+                                        apply_menu_witness(instance.game.inner_ref(), running),
+                                        Ok(()),
+                                    ),
+                                };
                                 witness
                             }
-                            AppInput::Wait => running.wait(&mut instance.game),
-                            AppInput::Get => running.get(&mut instance.game),
-                            AppInput::MessageLog => {
-                                return GameLoopState::MessageLog(running);
+                        } else {
+                            if let Input::Mouse(MouseInput::MouseMove { coord, .. }) = input {
+                                self.cursor = Some(coord);
                             }
-                            AppInput::DropItem => (
-                                drop_menu_witness(instance.game.inner_ref(), running),
-                                Ok(()),
-                            ),
-                            AppInput::ApplyItem => (
-                                apply_menu_witness(instance.game.inner_ref(), running),
-                                Ok(()),
-                            ),
-                        };
-                        witness
+                            if let Input::Mouse(MouseInput::MousePress { coord, .. }) = input {
+                                self.cursor = Some(coord);
+                            }
+                            if let Input::Mouse(MouseInput::MouseRelease { coord, .. }) = input {
+                                self.cursor = Some(coord);
+                            }
+                            if let Input::Keyboard(KeyboardInput::Char('?')) = input {
+                                return GameLoopState::Help(running);
+                            }
+                            running.into_witness()
+                        }
                     }
-                } else {
-                    if let Input::Mouse(MouseInput::MouseMove { coord, .. }) = input {
-                        self.cursor = Some(coord);
-                    }
-                    if let Input::Mouse(MouseInput::MousePress { coord, .. }) = input {
-                        self.cursor = Some(coord);
-                    }
-                    if let Input::Mouse(MouseInput::MouseRelease { coord, .. }) = input {
-                        self.cursor = Some(coord);
-                    }
-                    if let Input::Keyboard(KeyboardInput::Char('?')) = input {
-                        return GameLoopState::Help(running);
-                    }
-                    running.into_witness()
                 }
             }
             Event::Tick(since_previous) => {

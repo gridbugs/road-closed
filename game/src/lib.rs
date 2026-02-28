@@ -60,6 +60,66 @@ pub enum Mode {
     Walking,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub enum PeriodOfDay {
+    Dawn,
+    Morning,
+    Afternoon,
+    Dusk,
+    Night,
+}
+
+impl std::fmt::Display for PeriodOfDay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            PeriodOfDay::Dawn => "dawn",
+            PeriodOfDay::Morning => "morning",
+            PeriodOfDay::Afternoon => "afternoon",
+            PeriodOfDay::Dusk => "dusk",
+            PeriodOfDay::Night => "night",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct TimeOfDay {
+    hour: u8,
+    minute: u8,
+}
+
+impl TimeOfDay {
+    pub fn add_hours(&self, hours: u32) -> Self {
+        Self {
+            hour: ((self.hour as u32 + hours) % 24) as u8,
+            minute: self.minute,
+        }
+    }
+    pub fn period(&self) -> PeriodOfDay {
+        use PeriodOfDay::*;
+        match self.hour {
+            0..=4 => Night,
+            5 => Dawn,
+            6..=11 => Morning,
+            12..=17 => Afternoon,
+            18 => Dusk,
+            19.. => Night,
+        }
+    }
+    pub fn is_night(&self) -> bool {
+        match self.period() {
+            PeriodOfDay::Night => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::fmt::Display for TimeOfDay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:02}:{:02} ({})", self.hour, self.minute, self.period())
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Wait,
@@ -78,6 +138,8 @@ pub enum Message {
     ActionError(ActionError),
     GetItem(Item),
     DropItem(Item),
+    GetOutOfCar,
+    GetInCar,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,6 +178,9 @@ pub enum GameControlFlow {
 
 pub struct PlayerStats {
     pub health: Meter,
+    pub energy: Meter,
+    pub car_fuel: Meter,
+    pub food: Meter,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -123,6 +188,13 @@ pub enum Input {
     Walk(CardinalDirection),
     Wait,
     Get,
+    ContinueDriving,
+    StopDriving,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum TerrainType {
+    Forest,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -218,6 +290,8 @@ pub struct Game {
     turn_count: u64,
     game_over: bool,
     mode: Mode,
+    time_of_day: TimeOfDay,
+    terrain_type: TerrainType,
 }
 
 impl Game {
@@ -247,11 +321,21 @@ impl Game {
             external_events: Default::default(),
             turn_count: 0,
             game_over: false,
-            mode: Mode::Walking,
+            mode: Mode::Driving,
+            time_of_day: TimeOfDay { hour: 6, minute: 0 },
+            terrain_type: TerrainType::Forest,
         };
         game.systems();
         game.update_visibility();
         game
+    }
+
+    pub fn terrain_type(&self) -> TerrainType {
+        self.terrain_type
+    }
+
+    pub fn time_of_day(&self) -> TimeOfDay {
+        self.time_of_day
     }
 
     pub fn mode(&self) -> Mode {
@@ -376,6 +460,11 @@ impl Game {
                         return Ok(None);
                     }
                     return Err(ActionError::InvalidMove);
+                }
+                if self.world.components.your_car.contains(feature_entity) {
+                    self.mode = Mode::Driving;
+                    self.message_log.push(Message::GetInCar);
+                    return Ok(None);
                 }
             }
             if let Some(character_entity) = layers.character {
@@ -598,6 +687,15 @@ impl Game {
                 }
                 None
             }
+            Input::ContinueDriving => {
+                self.time_of_day = self.time_of_day.add_hours(1);
+                None
+            }
+            Input::StopDriving => {
+                self.mode = Mode::Walking;
+                self.message_log.push(Message::GetOutOfCar);
+                None
+            }
         };
         if game_control_flow.is_some() {
             return Ok(game_control_flow);
@@ -734,6 +832,19 @@ impl Game {
                 .health
                 .get(self.player_entity)
                 .unwrap(),
+            energy: *self
+                .world
+                .components
+                .energy
+                .get(self.player_entity)
+                .unwrap(),
+            car_fuel: *self
+                .world
+                .components
+                .car_fuel
+                .get(self.player_entity)
+                .unwrap(),
+            food: *self.world.components.food.get(self.player_entity).unwrap(),
         }
     }
 

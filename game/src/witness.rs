@@ -135,6 +135,16 @@ impl Running {
         game.witness_handle_input(Input::Get, private)
     }
 
+    pub fn continue_driving(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
+        let Self(private) = self;
+        game.witness_handle_input(Input::ContinueDriving, private)
+    }
+
+    pub fn stop_driving(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
+        let Self(private) = self;
+        game.witness_handle_input(Input::StopDriving, private)
+    }
+
     pub fn menu(self, menu: GameMenu) -> Witness {
         Witness::Menu(Menu {
             private: self.0,

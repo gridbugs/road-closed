@@ -19,6 +19,9 @@ pub fn make_player() -> EntityData {
             diminish: Diminish::default().with_height(100.),
         }),
         health: Some(Meter::new(20, 20)),
+        energy: Some(Meter::new(20, 20)),
+        food: Some(Meter::new(20, 20)),
+        car_fuel: Some(Meter::new(20, 20)),
         inventory: Some(Inventory::new(16)),
         ..Default::default()
     }
@@ -149,6 +152,7 @@ impl World {
             (coord, Layer::Feature),
             entity_data! {
                 tile: Tile::Car(ch),
+                your_car: (),
             },
         )
     }

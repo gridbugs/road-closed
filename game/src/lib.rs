@@ -161,6 +161,8 @@ pub enum Message {
     GetInCar,
     NightStalkerSpawn,
     NightStalkerDespawn,
+    CanOnlySleepAtNight,
+    Sleep,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -767,11 +769,11 @@ impl Game {
             }
             Input::ContinueDriving => {
                 self.time_of_day = self.time_of_day.add_minutes(59);
+                self.regenerate_terrain();
                 None
             }
             Input::StopDriving => {
                 self.mode = Mode::Walking;
-                self.regenerate_terrain();
                 self.message_log.push(Message::GetOutOfCar);
                 None
             }
@@ -853,6 +855,11 @@ impl Game {
                 match item {
                     Item::MedKit => {}
                     Item::Firewood => {
+                        if !self.time_of_day.is_night() {
+                            self.message_log.push(Message::CanOnlySleepAtNight);
+                            return None;
+                        }
+                        self.message_log.push(Message::Sleep);
                         self.time_of_day = self.time_of_day.add_hours(2);
                         despawn_night_stalkers = true;
                         self.world

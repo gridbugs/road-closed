@@ -38,6 +38,7 @@ impl Default for Controls {
             KeyboardInput::Char('g') => AppInput::Get,
             KeyboardInput::Char('d') => AppInput::DropItem,
             KeyboardInput::Char('a') => AppInput::ApplyItem,
+            KeyboardInput::Char('i') => AppInput::ApplyItem,
         ];
         let driving_keys = btreemap![
             KeyboardInput::Char('d') => AppInputDriving::ContinueDriving,

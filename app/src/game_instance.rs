@@ -1131,6 +1131,14 @@ pub fn message_to_text(message: Message) -> Text {
                 style: Style::plain_text(),
             },
         ]),
+        Message::CanOnlySleepAtNight => Text::new(vec![StyledString {
+            string: "It's not dark enough to sleep yet!".to_string(),
+            style: Style::plain_text(),
+        }]),
+        Message::Sleep => Text::new(vec![StyledString {
+            string: "You sleep for two hours.".to_string(),
+            style: Style::plain_text(),
+        }]),
     }
 }
 

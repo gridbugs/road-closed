@@ -177,6 +177,13 @@ impl World {
         }
     }
 
+    pub fn despawn_night_stalkers(&mut self, message_log: &mut Vec<Message>) {
+        for entity in self.components.night_stalker.entities() {
+            self.components.to_remove.insert(entity, ());
+            message_log.push(Message::NightStalkerDespawn);
+        }
+    }
+
     pub fn handle_night_stalkers<R: Rng>(
         &mut self,
         time: crate::TimeOfDay,
@@ -206,10 +213,7 @@ impl World {
                 }
             }
         } else {
-            for entity in self.components.night_stalker.entities() {
-                self.components.to_remove.insert(entity, ());
-                message_log.push(Message::NightStalkerDespawn);
-            }
+            self.despawn_night_stalkers(message_log);
         }
     }
 }

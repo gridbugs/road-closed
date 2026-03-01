@@ -846,7 +846,7 @@ fn apply_item_description(item: Item) -> String {
     use Item::*;
     match item {
         MedKit => "Apply to recover health.".to_string(),
-        Firewood => "Apply to sleep for the night and recover energy.".to_string(),
+        Firewood => "Apply at night to sleep for two hours and recover energy.".to_string(),
     }
 }
 

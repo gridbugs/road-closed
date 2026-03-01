@@ -31,6 +31,8 @@ pub use world::{
     spatial::LayerTable,
 };
 
+use crate::world::data::Inventory;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Omniscient;
 
@@ -478,6 +480,11 @@ impl Game {
                     self.message_log.push(Message::OpenDoor);
                     return Ok(None);
                 }
+                if self.world.components.your_car.contains(feature_entity) {
+                    self.mode = Mode::Driving;
+                    self.message_log.push(Message::GetInCar);
+                    return Ok(None);
+                }
                 // Don't let the player walk through solid entities
                 if self.world.components.solid.contains(feature_entity) {
                     if let Some(open_door_entity) =
@@ -488,11 +495,6 @@ impl Game {
                         return Ok(None);
                     }
                     return Err(ActionError::InvalidMove);
-                }
-                if self.world.components.your_car.contains(feature_entity) {
-                    self.mode = Mode::Driving;
-                    self.message_log.push(Message::GetInCar);
-                    return Ok(None);
                 }
             }
             if let Some(floor_entity) = layers.floor {
@@ -764,7 +766,7 @@ impl Game {
                 None
             }
             Input::ContinueDriving => {
-                self.time_of_day = self.time_of_day.add_hours(1);
+                self.time_of_day = self.time_of_day.add_minutes(59);
                 None
             }
             Input::StopDriving => {
@@ -787,20 +789,32 @@ impl Game {
         Ok(self.check_game_over())
     }
 
+    fn player_inventory(&self) -> &Inventory {
+        self.world
+            .components
+            .inventory
+            .get(self.player_entity)
+            .unwrap()
+    }
+    fn player_inventory_mut(&mut self) -> &mut Inventory {
+        self.world
+            .components
+            .inventory
+            .get_mut(self.player_entity)
+            .unwrap()
+    }
+
     fn player_get_item(&mut self) -> Result<(), ActionError> {
         let player_coord = self.player_coord();
         let layers = self.world.spatial_table.layers_at_checked(player_coord);
         if let Some(item_entity) = layers.item {
             if let Some(&item) = self.world.components.item.get(item_entity) {
-                let inventry = self
-                    .world
-                    .components
-                    .inventory
-                    .get_mut(self.player_entity)
-                    .unwrap();
-                if let Some(slot) = inventry.first_free_slot() {
-                    *slot = Some(item_entity);
+                if self.player_inventory().has_free_slot() {
                     self.world.spatial_table.remove(item_entity);
+                    let entity_data = self.world.components.remove_entity_data(item_entity);
+                    let inventory = self.player_inventory_mut();
+                    let slot = inventory.first_free_slot().unwrap();
+                    *slot = Some(entity_data);
                     self.message_log.push(Message::GetItem(item));
                 } else {
                     return Err(ActionError::InventoryIsFull);
@@ -833,13 +847,33 @@ impl Game {
             .inventory
             .get_mut(self.player_entity)
             .unwrap();
-        if let Some(item_entity) = inventory.get(i) {
-            if let Some(&item) = self.world.components.item.get(item_entity) {
+        let mut despawn_night_stalkers = false;
+        if let Some(item_data) = inventory.get(i) {
+            if let Some(item) = item_data.item {
                 match item {
-                    Item::MedKit => todo!(),
-                    Item::Firewood => todo!(),
+                    Item::MedKit => {}
+                    Item::Firewood => {
+                        self.time_of_day = self.time_of_day.add_hours(2);
+                        despawn_night_stalkers = true;
+                        self.world
+                            .components
+                            .energy
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(5);
+                        self.world
+                            .components
+                            .food
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .decrease(2);
+                    }
                 }
+                inventory.remove(i);
             }
+        }
+        if despawn_night_stalkers {
+            self.world.despawn_night_stalkers(&mut self.message_log);
         }
         None
     }
@@ -851,6 +885,7 @@ impl Game {
             .inventory
             .get(self.player_entity)
             .unwrap();
+        let mut items = vec![];
         for i in 0..inventory.size() {
             let inventory = self
                 .world
@@ -858,19 +893,23 @@ impl Game {
                 .inventory
                 .get_mut(self.player_entity)
                 .unwrap();
-            if let Some(item_entity) = inventory.remove(i) {
-                if let Some(coord) = self.world.nearest_itemless_coord(self.player_coord()) {
-                    let _ = self.world.spatial_table.update(
-                        item_entity,
-                        Location {
-                            coord,
-                            layer: Some(Layer::Item),
-                        },
-                    );
-                }
+            if let Some(item_data) = inventory.remove(i) {
+                items.push(item_data);
+            }
+        }
+        for item_data in items {
+            if let Some(coord) = self.world.nearest_itemless_coord(self.player_coord()) {
+                self.world.spawn_entity(
+                    Location {
+                        coord,
+                        layer: Some(Layer::Item),
+                    },
+                    item_data,
+                );
             }
         }
     }
+
     fn player_drop_item(&mut self, i: usize) {
         let inventory = self
             .world
@@ -878,17 +917,17 @@ impl Game {
             .inventory
             .get_mut(self.player_entity)
             .unwrap();
-        if let Some(item_entity) = inventory.remove(i) {
-            if let Some(&item) = self.world.components.item.get(item_entity) {
+        if let Some(item_data) = inventory.remove(i) {
+            if let Some(item) = item_data.item {
                 self.message_log.push(Message::DropItem(item));
             }
             if let Some(coord) = self.world.nearest_itemless_coord(self.player_coord()) {
-                let _ = self.world.spatial_table.update(
-                    item_entity,
+                self.world.spawn_entity(
                     Location {
                         coord,
                         layer: Some(Layer::Item),
                     },
+                    item_data,
                 );
             }
         }
@@ -936,14 +975,8 @@ impl Game {
     }
 
     pub fn inventory_item(&self, i: usize) -> Option<Item> {
-        let inventory = self
-            .world
-            .components
-            .inventory
-            .get(self.player_entity)
-            .unwrap();
-        inventory
+        self.player_inventory()
             .get(i)
-            .map(|entity| *self.world.components.item.get(entity).unwrap())
+            .map(|entity_data| entity_data.item.unwrap())
     }
 }

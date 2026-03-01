@@ -143,10 +143,10 @@ impl World {
     pub fn player_inventory_item_index(&self, item: Item) -> Option<usize> {
         let player = self.components.player.entities().next().unwrap();
         let inventory = self.components.inventory.get(player).unwrap();
-        for (i, entity) in inventory.items().iter().enumerate() {
-            if let Some(entity) = entity {
-                if let Some(current_item) = self.components.item.get(*entity) {
-                    if *current_item == item {
+        for (i, entity_data_opt) in inventory.items().iter().enumerate() {
+            if let Some(entity_data) = entity_data_opt.as_ref() {
+                if let Some(current_item) = entity_data.item {
+                    if current_item == item {
                         return Some(i);
                     }
                 }

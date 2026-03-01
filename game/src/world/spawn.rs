@@ -18,11 +18,11 @@ pub fn make_player() -> EntityData {
             vision_distance: vision_distance::Circle::new_squared(300),
             diminish: Diminish::default().with_height(100.),
         }),
-        health: Some(Meter::new(20, 20)),
-        energy: Some(Meter::new(20, 20)),
-        food: Some(Meter::new(20, 20)),
-        car_fuel: Some(Meter::new(20, 20)),
-        inventory: Some(Inventory::new(16)),
+        health: Some(Meter::new(10, 20)),
+        energy: Some(Meter::new(10, 20)),
+        food: Some(Meter::new(10, 20)),
+        car_fuel: Some(Meter::new(10, 20)),
+        inventory: Some(Inventory::new(6)),
         ..Default::default()
     }
 }
@@ -35,7 +35,11 @@ impl World {
         entity
     }
 
-    fn spawn_entity<L: Into<Location>>(&mut self, location: L, entity_data: EntityData) -> Entity {
+    pub fn spawn_entity<L: Into<Location>>(
+        &mut self,
+        location: L,
+        entity_data: EntityData,
+    ) -> Entity {
         let entity = self.entity_allocator.alloc();
         let location @ Location { layer, coord } = location.into();
         if let Err(e) = self.spatial_table.update(entity, location) {

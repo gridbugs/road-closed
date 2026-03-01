@@ -874,7 +874,9 @@ fn describe_tile(tile: Tile) -> Description {
                 },
             ]),
             description: Some(Text::new(vec![
-                StyledString::plain_text("Apply to sleep for two hours and recover ".to_string()),
+                StyledString::plain_text(
+                    "Apply at night to sleep for two hours and recover ".to_string(),
+                ),
                 StyledString {
                     string: "energy".to_string(),
                     style: Style::new().with_bold(true).with_foreground(

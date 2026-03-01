@@ -140,7 +140,7 @@ pub enum Item {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Inventory {
-    pub items: Vec<Option<Entity>>,
+    pub items: Vec<Option<EntityData>>,
 }
 
 impl Inventory {
@@ -150,7 +150,16 @@ impl Inventory {
         }
     }
 
-    pub fn first_free_slot(&mut self) -> Option<&mut Option<Entity>> {
+    pub fn has_free_slot(&self) -> bool {
+        for entry in self.items.iter() {
+            if entry.is_none() {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn first_free_slot(&mut self) -> Option<&mut Option<EntityData>> {
         for entry in self.items.iter_mut() {
             if entry.is_none() {
                 return Some(entry);
@@ -163,15 +172,15 @@ impl Inventory {
         self.items.len()
     }
 
-    pub fn get(&self, i: usize) -> Option<Entity> {
-        self.items[i]
+    pub fn get(&self, i: usize) -> Option<&EntityData> {
+        self.items[i].as_ref()
     }
 
-    pub fn remove(&mut self, i: usize) -> Option<Entity> {
+    pub fn remove(&mut self, i: usize) -> Option<EntityData> {
         self.items[i].take()
     }
 
-    pub fn items(&self) -> &[Option<Entity>] {
+    pub fn items(&self) -> &[Option<EntityData>] {
         &self.items
     }
 }

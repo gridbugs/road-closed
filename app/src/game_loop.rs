@@ -265,12 +265,6 @@ fn new_game(
     GameInstance::new(game_config, &mut rng)
 }
 
-#[derive(Clone, Copy)]
-struct ScreenShake {
-    countdown: u32,
-    offset: ICoord,
-}
-
 pub struct GameLoopData {
     instance: Option<GameInstance>,
     controls: Controls,
@@ -279,7 +273,6 @@ pub struct GameLoopData {
     rng_seed_source: RngSeedSource,
     config: Config,
     cursor: Option<ICoord>,
-    screen_shake: Option<ScreenShake>,
 }
 
 impl GameLoopData {
@@ -327,7 +320,6 @@ impl GameLoopData {
                 rng_seed_source,
                 config,
                 cursor: None,
-                screen_shake: None,
             },
             state,
         )
@@ -368,11 +360,7 @@ impl GameLoopData {
 
     fn render(&self, ctx: Ctx, fb: &mut FrameBuffer) {
         if let Some(instance) = self.instance.as_ref() {
-            let offset = self
-                .screen_shake
-                .map(|s| s.offset)
-                .unwrap_or(ICoord::new(0, 0));
-            instance.render(ctx, fb, self.cursor, offset);
+            instance.render(ctx, fb, self.cursor, ICoord::new(0, 0));
             let colour = colours::CURSOR.to_rgba32(187);
             if let Some(cursor) = self.cursor {
                 let render_cell = RenderCell::default().with_background(colour);
@@ -446,7 +434,7 @@ impl GameLoopData {
                     }
                 }
             }
-            Event::Tick(since_previous) => {
+            Event::Tick(_since_previous) => {
                 let (witness, _) = if instance.game.inner_ref().passed_out_for() > 0 {
                     running.wait(&mut instance.game)
                 } else {
@@ -843,6 +831,10 @@ fn apply_item_description(item: Item) -> String {
     match item {
         MedKit => "Apply to recover health.".to_string(),
         Firewood => "Apply at night to sleep for two hours and recover energy.".to_string(),
+        Fruit => "Apply to recover a small amount of food.".to_string(),
+        Food => "Apply to recover food.".to_string(),
+        Coffee => "Apply to recover energy.".to_string(),
+        FuelCan => "Apply next to car to refill fuel.".to_string(),
     }
 }
 

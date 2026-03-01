@@ -1,3 +1,4 @@
+use direction::CardinalDirections;
 pub use direction::{CardinalDirection, Direction};
 pub use entity_table::{ComponentTable, Entity, entity_data, entity_update};
 pub use grid_2d::{Grid, ICoord, UCoord};
@@ -192,12 +193,13 @@ pub enum Message {
     NightStalkerSpawn,
     NightStalkerDespawn,
     CanOnlySleepAtNight,
-    Sleep,
     TransferItemToCar(Item),
     TransferItemFromCar(Item),
     AboutToPassOut,
     PassOut,
     DamageFromHunger,
+    ApplyItem(Item),
+    MustBeNextToCarToRefuel,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -556,7 +558,7 @@ impl Game {
                     match direction {
                         CardinalDirection::North => {
                             let car_inventory = Menu {
-                                text: "Choose item to take, or free slot to move item into: (escape to cancel)".to_string(),
+                                text: "Car Inventory\n\nChoose item to take, or free slot to move item into: (escape to cancel)".to_string(),
                                 choices,
                             };
                             return Ok(Some(GameControlFlow::Menu(car_inventory)));
@@ -1104,7 +1106,23 @@ impl Game {
         self.check_game_over()
     }
 
+    fn is_player_next_to_car(&self) -> bool {
+        let player_coord = self.player_coord();
+        for d in CardinalDirections {
+            let c = player_coord + d.coord();
+            if let Some(layers) = self.world.spatial_table.layers_at(c) {
+                if let Some(feature) = layers.feature {
+                    if self.world.components.your_car.contains(feature) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     fn player_apply_item(&mut self, i: usize) -> Option<GameControlFlow> {
+        let player_next_to_car = self.is_player_next_to_car();
         let inventory = self
             .world
             .components
@@ -1115,13 +1133,39 @@ impl Game {
         if let Some(item_data) = inventory.get(i) {
             if let Some(item) = item_data.item {
                 match item {
-                    Item::MedKit => {}
+                    Item::MedKit => {
+                        self.message_log.push(Message::ApplyItem(item));
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(10);
+                    }
+                    Item::Fruit => {
+                        self.message_log.push(Message::ApplyItem(item));
+                        self.world
+                            .components
+                            .food
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(5);
+                    }
+                    Item::Food => {
+                        self.message_log.push(Message::ApplyItem(item));
+                        self.world
+                            .components
+                            .food
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(10);
+                    }
                     Item::Firewood => {
                         if !self.time_of_day.is_night() {
                             self.message_log.push(Message::CanOnlySleepAtNight);
                             return None;
                         }
-                        self.message_log.push(Message::Sleep);
+                        self.message_log.push(Message::ApplyItem(item));
                         self.time_of_day = self.time_of_day.add_hours(2);
                         despawn_night_stalkers = true;
                         self.world
@@ -1136,6 +1180,29 @@ impl Game {
                             .get_mut(self.player_entity)
                             .unwrap()
                             .decrease(2);
+                    }
+                    Item::Coffee => {
+                        self.message_log.push(Message::ApplyItem(item));
+                        self.world
+                            .components
+                            .energy
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(10);
+                    }
+                    Item::FuelCan => {
+                        if player_next_to_car {
+                            self.message_log.push(Message::ApplyItem(item));
+                            self.world
+                                .components
+                                .car_fuel
+                                .get_mut(self.player_entity)
+                                .unwrap()
+                                .increase(10);
+                        } else {
+                            self.message_log.push(Message::MustBeNextToCarToRefuel);
+                            return None;
+                        }
                     }
                 }
                 inventory.remove(i);

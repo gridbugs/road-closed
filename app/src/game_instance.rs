@@ -214,6 +214,38 @@ impl GameInstance {
                         .with_foreground(colours::FIREWOOD.to_rgba32(255)),
                 };
             }
+            Tile::Item(Item::Fruit) => {
+                return RenderCell {
+                    character: Some('['),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::FRUIT.to_rgba32(255)),
+                };
+            }
+            Tile::Item(Item::Food) => {
+                return RenderCell {
+                    character: Some('['),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::FOOD_ITEM.to_rgba32(255)),
+                };
+            }
+            Tile::Item(Item::Coffee) => {
+                return RenderCell {
+                    character: Some('{'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::COFFEE.to_rgba32(255)),
+                };
+            }
+            Tile::Item(Item::FuelCan) => {
+                return RenderCell {
+                    character: Some('('),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::FUEL_CAN.to_rgba32(255)),
+                };
+            }
             Tile::Zombie => {
                 return RenderCell {
                     character: Some('z'),
@@ -888,6 +920,96 @@ fn describe_tile(tile: Tile) -> Description {
                 StyledString::plain_text(".".to_string()),
             ])),
         },
+        Tile::Item(Item::Fruit) => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "fruit".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FRUIT
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+            ]),
+            description: Some(Text::new(vec![
+                StyledString::plain_text("Apply to recover ".to_string()),
+                StyledString {
+                    string: "food".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FOOD.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(".".to_string()),
+            ])),
+        },
+        Tile::Item(Item::Food) => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a piece of ".to_string()),
+                StyledString {
+                    string: "food".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FOOD.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+            ]),
+            description: Some(Text::new(vec![
+                StyledString::plain_text("Apply to recover ".to_string()),
+                StyledString {
+                    string: "food".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FOOD.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(".".to_string()),
+            ])),
+        },
+        Tile::Item(Item::Coffee) => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a can of ".to_string()),
+                StyledString {
+                    string: "coffee".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::COFFEE.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![
+                StyledString::plain_text("Apply to recover ".to_string()),
+                StyledString {
+                    string: "energy".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::ENERGY
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(".".to_string()),
+            ])),
+        },
+        Tile::Item(Item::FuelCan) => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "fuel can".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FUEL_CAN
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+            ]),
+            description: Some(Text::new(vec![
+                StyledString::plain_text("Apply next to car to refill ".to_string()),
+                StyledString {
+                    string: "fuel".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FUEL.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(".".to_string()),
+            ])),
+        },
         Tile::Zombie => Description {
             name: Text::new(vec![
                 StyledString::plain_text("a ".to_string()),
@@ -1170,10 +1292,92 @@ pub fn message_to_text(message: Message) -> Text {
             string: "It's not dark enough to sleep yet!".to_string(),
             style: Style::plain_text(),
         }]),
-        Message::Sleep => Text::new(vec![StyledString {
-            string: "You sleep for two hours.".to_string(),
-            style: Style::plain_text(),
-        }]),
+        Message::ApplyItem(item) => match item {
+            Item::MedKit => Text::new(vec![
+                StyledString {
+                    string: "You apply the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: "medkit".to_string(),
+                    style: Style::plain_text()
+                        .with_bold(true)
+                        .with_foreground(colours::MED_KIT.to_rgba32(255)),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+            Item::Firewood => Text::new(vec![StyledString {
+                string: "You sleep for two hours.".to_string(),
+                style: Style::plain_text(),
+            }]),
+            Item::Fruit => Text::new(vec![
+                StyledString {
+                    string: "You eat the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: "fruit".to_string(),
+                    style: Style::plain_text()
+                        .with_bold(true)
+                        .with_foreground(colours::FRUIT.to_rgba32(255)),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+            Item::Food => Text::new(vec![
+                StyledString {
+                    string: "You eat the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: "food".to_string(),
+                    style: Style::plain_text()
+                        .with_bold(true)
+                        .with_foreground(colours::FOOD_ITEM.to_rgba32(255)),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+            Item::Coffee => Text::new(vec![
+                StyledString {
+                    string: "You drink the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: "coffee".to_string(),
+                    style: Style::plain_text()
+                        .with_bold(true)
+                        .with_foreground(colours::COFFEE.to_rgba32(255)),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+            Item::FuelCan => Text::new(vec![
+                StyledString {
+                    string: "You empty the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: "fuel can".to_string(),
+                    style: Style::plain_text()
+                        .with_bold(true)
+                        .with_foreground(colours::FUEL_CAN.to_rgba32(255)),
+                },
+                StyledString {
+                    string: " into the car.".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+        },
         Message::TransferItemToCar(item) => Text::new(vec![
             StyledString::plain_text("You move the ".to_string()),
             item_styled_string_for_message(item),
@@ -1209,6 +1413,10 @@ pub fn message_to_text(message: Message) -> Text {
                 style: Style::plain_text(),
             },
         ]),
+        Message::MustBeNextToCarToRefuel => Text::new(vec![StyledString {
+            string: "You must be next to the car to refuel it!".to_string(),
+            style: Style::plain_text().with_foreground(colours::ERROR.to_rgba32(255)),
+        }]),
     }
 }
 
@@ -1227,6 +1435,31 @@ fn item_styled_string_for_message(item: Item) -> text::StyledString {
                 .with_bold(true)
                 .with_foreground(colours::FIREWOOD.to_rgba32(255)),
         },
+        Item::Fruit => StyledString {
+            string: "fruit".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::FRUIT.to_rgba32(255)),
+        },
+        Item::Food => StyledString {
+            string: "food".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::FOOD_ITEM.to_rgba32(255)),
+        },
+        Item::Coffee => StyledString {
+            string: "coffee".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::COFFEE.to_rgba32(255)),
+        },
+
+        Item::FuelCan => StyledString {
+            string: "fuel".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::FUEL.to_rgba32(255).saturating_scalar_mul_div(3, 2)),
+        },
     }
 }
 
@@ -1234,5 +1467,9 @@ pub fn item_string_for_menu(item: Item) -> String {
     match item {
         Item::MedKit => "Medkit".to_string(),
         Item::Firewood => "Firewood".to_string(),
+        Item::Fruit => "Fruit".to_string(),
+        Item::Food => "Food".to_string(),
+        Item::Coffee => "Coffee".to_string(),
+        Item::FuelCan => "Fuel Can".to_string(),
     }
 }

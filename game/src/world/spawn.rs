@@ -4,7 +4,6 @@ use crate::{
 };
 use coord_2d::ICoord;
 use entity_table::entity_data;
-use rand::Rng;
 use rgb_int::Rgb24;
 use visible_area_detection::{Diminish, Light, vision_distance};
 

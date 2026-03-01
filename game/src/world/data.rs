@@ -137,6 +137,10 @@ impl NpcType {
 pub enum Item {
     MedKit,
     Firewood,
+    Food,
+    Fruit,
+    Coffee,
+    FuelCan,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

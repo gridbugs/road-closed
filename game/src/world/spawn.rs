@@ -19,10 +19,11 @@ pub fn make_player() -> EntityData {
             diminish: Diminish::default().with_height(100.),
         }),
         health: Some(Meter::new(10, 20)),
-        energy: Some(Meter::new(10, 20)),
-        food: Some(Meter::new(10, 20)),
-        car_fuel: Some(Meter::new(10, 20)),
+        energy: Some(Meter::new(20, 20)),
+        food: Some(Meter::new(2, 20)),
+        car_fuel: Some(Meter::new(20, 20)),
         inventory: Some(Inventory::new(6)),
+        car_inventory: Some(Inventory::new(12)),
         ..Default::default()
     }
 }

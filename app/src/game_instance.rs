@@ -1015,6 +1015,24 @@ pub fn message_to_text(message: Message) -> Text {
                 "You don't want to walk too far from your car.".to_string()
             }
             ActionError::NothingToGet => "There is nothing here to pick up.".to_string(),
+            ActionError::CarIsOutOfFuel => {
+                return Text::new(vec![
+                    StyledString {
+                        string: "The car is out of ".to_string(),
+                        style: Style::plain_text(),
+                    },
+                    StyledString {
+                        string: "fuel".to_string(),
+                        style: Style::plain_text().with_bold(true).with_foreground(
+                            colours::FUEL.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                        ),
+                    },
+                    StyledString {
+                        string: ".".to_string(),
+                        style: Style::plain_text(),
+                    },
+                ]);
+            }
             ActionError::InventoryIsFull => {
                 return Text::new(vec![
                     StyledString {
@@ -1028,6 +1046,7 @@ pub fn message_to_text(message: Message) -> Text {
                     },
                 ]);
             }
+            ActionError::TooTiredToDrive => "You are too tired to drive!".to_string(),
         })]),
         Message::NpcHit { npc_type, damage } => Text::new(vec![
             StyledString::plain_text("You hit the ".to_string()),
@@ -1079,6 +1098,22 @@ pub fn message_to_text(message: Message) -> Text {
             string: "You get out of the car.".to_string(),
             style: Style::plain_text(),
         }]),
+        Message::OutOfFuel => Text::new(vec![
+            StyledString {
+                string: "The car runs out of ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "fuel".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::FUEL.to_rgba32(255).saturating_scalar_mul_div(3, 2)),
+            },
+            StyledString {
+                string: " and rolls to a stop.".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
         Message::KickZombieCorpse => Text::new(vec![
             StyledString {
                 string: "You kick the ".to_string(),
@@ -1139,6 +1174,41 @@ pub fn message_to_text(message: Message) -> Text {
             string: "You sleep for two hours.".to_string(),
             style: Style::plain_text(),
         }]),
+        Message::TransferItemToCar(item) => Text::new(vec![
+            StyledString::plain_text("You move the ".to_string()),
+            item_styled_string_for_message(item),
+            StyledString::plain_text(" from your pack to the car.".to_string()),
+        ]),
+        Message::TransferItemFromCar(item) => Text::new(vec![
+            StyledString::plain_text("You take the ".to_string()),
+            item_styled_string_for_message(item),
+            StyledString::plain_text(" from the car.".to_string()),
+        ]),
+        Message::TooTiredToDrive => Text::new(vec![StyledString::plain_text(
+            "You're too tired to drive!".to_string(),
+        )]),
+        Message::AboutToPassOut => Text::new(vec![StyledString::plain_text(
+            "You feel like you're about to pass out from exhaustion...".to_string(),
+        )]),
+        Message::PassOut => Text::new(vec![StyledString::plain_text(
+            "You pass out from exhaustion and wake up 30 minutes later.".to_string(),
+        )]),
+        Message::DamageFromHunger => Text::new(vec![
+            StyledString {
+                string: "You take damage from hunger. Find some ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "food".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::FOOD.to_rgba32(255).saturating_scalar_mul_div(3, 2)),
+            },
+            StyledString {
+                string: "!".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
     }
 }
 

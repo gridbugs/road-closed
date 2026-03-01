@@ -447,15 +447,11 @@ impl GameLoopData {
                 }
             }
             Event::Tick(since_previous) => {
-                let witness = running.tick(&mut instance.game, since_previous, &self.game_config);
-                self.screen_shake = self.screen_shake.and_then(|mut screen_shake| {
-                    if screen_shake.countdown == 0 {
-                        None
-                    } else {
-                        screen_shake.countdown -= 1;
-                        Some(screen_shake)
-                    }
-                });
+                let (witness, _) = if instance.game.inner_ref().passed_out_for() > 0 {
+                    running.wait(&mut instance.game)
+                } else {
+                    (running.into_witness(), Ok(()))
+                };
                 witness
             }
             _ => Witness::Running(running),
@@ -862,6 +858,33 @@ fn menu_choice_string(game: &game::Game, choice: GameMenuChoice) -> String {
         }
         GameMenuChoice::ApplyItem(i) => {
             if let Some(item) = game.inventory_item(i) {
+                format!(
+                    "{} - {}",
+                    item_string_for_menu(item),
+                    apply_item_description(item)
+                )
+            } else {
+                "(empty)".to_string()
+            }
+        }
+        GameMenuChoice::TakeItemFromCar {
+            car_inventory_slot_index,
+        } => {
+            if let Some(item) = game.car_inventory_item(car_inventory_slot_index) {
+                format!(
+                    "{} - {}",
+                    item_string_for_menu(item),
+                    apply_item_description(item)
+                )
+            } else {
+                "(empty)".to_string()
+            }
+        }
+        GameMenuChoice::TransferItemToCar {
+            car_inventory_slot_index: _,
+            player_inventor_slot_index,
+        } => {
+            if let Some(item) = game.inventory_item(player_inventor_slot_index) {
                 format!(
                     "{} - {}",
                     item_string_for_menu(item),

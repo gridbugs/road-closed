@@ -82,7 +82,7 @@ impl Map1 {
         // grid of trees
         let spacing = 3;
         let spacing_y = 2;
-        let grid_tree_chance = 0.95;
+        let grid_tree_chance = 0.85;
         let grid_tree_dead_chance = 0.05;
         for i in 0..MAP_SIZE.height() {
             if i % (spacing_y + 1) != 0 {

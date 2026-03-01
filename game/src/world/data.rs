@@ -23,6 +23,7 @@ declare_entity_module! {
         npc_type: NpcType,
         item: Item,
         inventory: Inventory,
+        car_inventory: Inventory,
         to_remove: (),
         split_on_damage: (),
         colour_hint: Rgba32,
@@ -178,6 +179,10 @@ impl Inventory {
 
     pub fn remove(&mut self, i: usize) -> Option<EntityData> {
         self.items[i].take()
+    }
+
+    pub fn insert(&mut self, i: usize, item_data: EntityData) {
+        self.items[i] = Some(item_data);
     }
 
     pub fn items(&self) -> &[Option<EntityData>] {

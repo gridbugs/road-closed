@@ -137,6 +137,34 @@ impl std::fmt::Display for TimeOfDay {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct Countdown {
+    resets_to: u32,
+    value: u32,
+}
+
+impl Countdown {
+    fn new(resets_to: u32) -> Self {
+        Self {
+            resets_to,
+            value: resets_to,
+        }
+    }
+
+    fn tick(&mut self) -> bool {
+        self.value -= 1;
+        let ret = self.value == 0;
+        if ret {
+            self.value = self.resets_to;
+        }
+        ret
+    }
+
+    fn reset(&mut self) {
+        self.value = self.resets_to;
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Wait,
@@ -157,12 +185,19 @@ pub enum Message {
     ActionError(ActionError),
     GetItem(Item),
     DropItem(Item),
+    OutOfFuel,
+    TooTiredToDrive,
     GetOutOfCar,
     GetInCar,
     NightStalkerSpawn,
     NightStalkerDespawn,
     CanOnlySleepAtNight,
     Sleep,
+    TransferItemToCar(Item),
+    TransferItemFromCar(Item),
+    AboutToPassOut,
+    PassOut,
+    DamageFromHunger,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -170,6 +205,13 @@ pub enum MenuChoice {
     Empty,
     DropItem(usize),
     ApplyItem(usize),
+    TakeItemFromCar {
+        car_inventory_slot_index: usize,
+    },
+    TransferItemToCar {
+        car_inventory_slot_index: usize,
+        player_inventor_slot_index: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -290,6 +332,8 @@ pub enum ActionError {
     MoveOutOfBounds,
     NothingToGet,
     InventoryIsFull,
+    CarIsOutOfFuel,
+    TooTiredToDrive,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -309,6 +353,11 @@ pub struct Game {
     mode: Mode,
     time_of_day: TimeOfDay,
     terrain_type: TerrainType,
+    energy_countdown: Countdown,
+    pass_out_countdown: Countdown,
+    passed_out_for: u32,
+    walking_food_countdown: Countdown,
+    driving_food_countdown: Countdown,
 }
 
 impl Game {
@@ -341,10 +390,19 @@ impl Game {
             mode: Mode::Driving,
             time_of_day: TimeOfDay { hour: 6, minute: 0 },
             terrain_type: TerrainType::PinePlantation,
+            energy_countdown: Countdown::new(120),
+            pass_out_countdown: Countdown::new(30),
+            passed_out_for: 0,
+            walking_food_countdown: Countdown::new(60),
+            driving_food_countdown: Countdown::new(2),
         };
         game.systems();
         game.update_visibility();
         game
+    }
+
+    pub fn passed_out_for(&self) -> u32 {
+        self.passed_out_for
     }
 
     pub fn regenerate_terrain(&mut self) {
@@ -483,9 +541,53 @@ impl Game {
                     return Ok(None);
                 }
                 if self.world.components.your_car.contains(feature_entity) {
-                    self.mode = Mode::Driving;
-                    self.message_log.push(Message::GetInCar);
-                    return Ok(None);
+                    let choices = (0..self
+                        .world
+                        .components
+                        .car_inventory
+                        .get(self.player_entity)
+                        .unwrap()
+                        .size())
+                        .map(|i| MenuChoice::TakeItemFromCar {
+                            car_inventory_slot_index: i,
+                        })
+                        .collect();
+
+                    match direction {
+                        CardinalDirection::North => {
+                            let car_inventory = Menu {
+                                text: "Choose item to take, or free slot to move item into: (escape to cancel)".to_string(),
+                                choices,
+                            };
+                            return Ok(Some(GameControlFlow::Menu(car_inventory)));
+                        }
+                        CardinalDirection::South => (),
+                        CardinalDirection::East | CardinalDirection::West => {
+                            if self
+                                .world
+                                .components
+                                .car_fuel
+                                .get(self.player_entity)
+                                .unwrap()
+                                .is_empty()
+                            {
+                                return Err(ActionError::CarIsOutOfFuel);
+                            }
+                            if self
+                                .world
+                                .components
+                                .energy
+                                .get(self.player_entity)
+                                .unwrap()
+                                .is_empty()
+                            {
+                                return Err(ActionError::TooTiredToDrive);
+                            }
+                            self.mode = Mode::Driving;
+                            self.message_log.push(Message::GetInCar);
+                            return Ok(None);
+                        }
+                    }
                 }
                 // Don't let the player walk through solid entities
                 if self.world.components.solid.contains(feature_entity) {
@@ -662,7 +764,9 @@ impl Game {
             }
         }
         self.systems();
+        self.passed_out_for = self.passed_out_for.saturating_sub(1);
         self.turn_count += 1;
+        self.decrease_player_stats();
         if self.turn_count % 1 == 0 {
             self.time_of_day = self.time_of_day.add_minutes(1);
         }
@@ -677,6 +781,87 @@ impl Game {
         self.world.handle_resurrection();
         self.world
             .handle_night_stalkers(self.time_of_day, &mut self.rng, &mut self.message_log);
+    }
+
+    fn decrease_player_stats(&mut self) {
+        let energy = self
+            .world
+            .components
+            .energy
+            .get_mut(self.player_entity)
+            .unwrap();
+        match self.mode {
+            Mode::Walking => {
+                if self.passed_out_for == 0 {
+                    if energy.is_empty() {
+                        if self.pass_out_countdown.value == 5 {
+                            self.message_log.push(Message::AboutToPassOut);
+                        }
+                        if self.pass_out_countdown.tick() {
+                            self.message_log.push(Message::PassOut);
+                            self.passed_out_for = 30;
+                        }
+                    } else {
+                        self.pass_out_countdown.reset();
+                        if self.energy_countdown.tick() {
+                            energy.decrease(1);
+                        }
+                    }
+                }
+                if self.passed_out_for == 1 {
+                    energy.set_current(1);
+                    self.pass_out_countdown.reset();
+                }
+            }
+            Mode::Driving => {
+                if !energy.is_empty() {
+                    energy.decrease(1);
+                }
+                if energy.is_empty() {
+                    self.message_log.push(Message::TooTiredToDrive);
+                    self.message_log.push(Message::GetOutOfCar);
+                    self.mode = Mode::Walking;
+                }
+            }
+        }
+        let food = self
+            .world
+            .components
+            .food
+            .get_mut(self.player_entity)
+            .unwrap();
+        match self.mode {
+            Mode::Walking => {
+                if self.walking_food_countdown.tick() {
+                    if food.is_empty() {
+                        self.message_log.push(Message::DamageFromHunger);
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .decrease(1);
+                    } else {
+                        food.decrease(1);
+                    }
+                }
+            }
+            Mode::Driving => {
+                if self.driving_food_countdown.tick() {
+                    if food.is_empty() {
+                        self.message_log.push(Message::DamageFromHunger);
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .decrease(1);
+                    } else {
+                        food.decrease(1);
+                    }
+                }
+            }
+        }
     }
 
     fn check_game_over(&mut self) -> Option<GameControlFlow> {
@@ -736,7 +921,7 @@ impl Game {
     fn pass_time(&mut self) {}
 
     pub fn is_gameplay_blocked(&self) -> bool {
-        false
+        self.passed_out_for > 0
     }
 
     #[must_use]
@@ -756,7 +941,9 @@ impl Game {
                 }
             }
             Input::Wait => {
-                self.message_log.push(Message::Wait);
+                if self.passed_out_for == 0 {
+                    self.message_log.push(Message::Wait);
+                }
                 self.pass_time();
                 None
             }
@@ -770,6 +957,18 @@ impl Game {
             Input::ContinueDriving => {
                 self.time_of_day = self.time_of_day.add_minutes(59);
                 self.regenerate_terrain();
+                let fuel = self
+                    .world
+                    .components
+                    .car_fuel
+                    .get_mut(self.player_entity)
+                    .unwrap();
+                fuel.decrease(1);
+                if fuel.is_empty() {
+                    self.mode = Mode::Walking;
+                    self.message_log.push(Message::OutOfFuel);
+                    self.message_log.push(Message::GetOutOfCar);
+                }
                 None
             }
             Input::StopDriving => {
@@ -781,11 +980,9 @@ impl Game {
         if game_control_flow.is_some() {
             return Ok(game_control_flow);
         }
-        if !self.is_gameplay_blocked() {
-            let game_control_flow = self.npc_turn();
-            if game_control_flow.is_some() {
-                return Ok(game_control_flow);
-            }
+        let game_control_flow = self.npc_turn();
+        if game_control_flow.is_some() {
+            return Ok(game_control_flow);
         }
         self.update_visibility();
         Ok(self.check_game_over())
@@ -798,10 +995,27 @@ impl Game {
             .get(self.player_entity)
             .unwrap()
     }
+
     fn player_inventory_mut(&mut self) -> &mut Inventory {
         self.world
             .components
             .inventory
+            .get_mut(self.player_entity)
+            .unwrap()
+    }
+
+    fn car_inventory(&self) -> &Inventory {
+        self.world
+            .components
+            .car_inventory
+            .get(self.player_entity)
+            .unwrap()
+    }
+
+    fn car_inventory_mut(&mut self) -> &mut Inventory {
+        self.world
+            .components
+            .car_inventory
             .get_mut(self.player_entity)
             .unwrap()
     }
@@ -835,6 +1049,54 @@ impl Game {
             MenuChoice::ApplyItem(i) => {
                 if let Some(control_flow) = self.player_apply_item(i) {
                     return Some(control_flow);
+                }
+            }
+            MenuChoice::TakeItemFromCar {
+                car_inventory_slot_index,
+            } => {
+                let item = self.car_inventory().get(car_inventory_slot_index);
+                match item {
+                    Some(_) => {
+                        let player_inventory = self.player_inventory();
+                        if player_inventory.has_free_slot() {
+                            let car_inventory = self.car_inventory_mut();
+                            let item_data = car_inventory.remove(car_inventory_slot_index).unwrap();
+                            self.message_log
+                                .push(Message::TransferItemFromCar(item_data.item.unwrap()));
+                            *self.player_inventory_mut().first_free_slot().unwrap() =
+                                Some(item_data);
+                        }
+                    }
+                    None => {
+                        let choices = (0..self
+                            .world
+                            .components
+                            .inventory
+                            .get(self.player_entity)
+                            .unwrap()
+                            .size())
+                            .map(|i| MenuChoice::TransferItemToCar {
+                                car_inventory_slot_index,
+                                player_inventor_slot_index: i,
+                            })
+                            .collect();
+                        return Some(GameControlFlow::Menu(Menu {
+                            text: "Choose item from your inventory to move into car: (escape to cancel)".to_string(),
+                            choices,
+                        }));
+                    }
+                }
+            }
+            MenuChoice::TransferItemToCar {
+                car_inventory_slot_index,
+                player_inventor_slot_index,
+            } => {
+                let player_inventory = self.player_inventory_mut();
+                if let Some(item_data) = player_inventory.remove(player_inventor_slot_index) {
+                    self.message_log
+                        .push(Message::TransferItemToCar(item_data.item.unwrap()));
+                    let car_inventory = self.car_inventory_mut();
+                    car_inventory.insert(car_inventory_slot_index, item_data);
                 }
             }
         }
@@ -983,6 +1245,16 @@ impl Game {
 
     pub fn inventory_item(&self, i: usize) -> Option<Item> {
         self.player_inventory()
+            .get(i)
+            .map(|entity_data| entity_data.item.unwrap())
+    }
+
+    pub fn car_inventory_item(&self, i: usize) -> Option<Item> {
+        self.world
+            .components
+            .car_inventory
+            .get(self.player_entity)
+            .unwrap()
             .get(i)
             .map(|entity_data| entity_data.item.unwrap())
     }

@@ -13,6 +13,7 @@ pub const MED_KIT: Rgb24 = HEALTH.saturating_scalar_mul_div(2, 1);
 pub const FIREWOOD: Rgb24 = Rgb24::hex(0xeda12f);
 
 pub const ZOMBIE: Rgb24 = Rgb24::new(255, 51, 0);
+pub const NIGHT_STALKER: Rgb24 = Rgb24::hex(0x7744ed);
 pub const HEALTH: Rgb24 = Rgb24::hex(0x93150e);
 pub const ENERGY: Rgb24 = Rgb24::hex(0x2c720e);
 pub const FUEL: Rgb24 = Rgb24::hex(0x520b75);

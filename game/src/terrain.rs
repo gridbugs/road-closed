@@ -93,7 +93,7 @@ impl Terrain {
             }
         }
         let player_spawn = player_coord.unwrap();
-        world.spawn_zombie(player_spawn + ICoord::new(0, 5));
+        world.spawn_firewood(player_spawn + ICoord::new(0, 2));
         Self {
             player_spawn,
             world,

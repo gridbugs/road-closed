@@ -230,6 +230,15 @@ impl GameInstance {
                         .with_foreground(colours::ZOMBIE.to_rgba32(255)),
                 };
             }
+            Tile::NightStalker => {
+                return RenderCell {
+                    character: Some('n'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::NIGHT_STALKER.to_rgba32(255)),
+                };
+            }
+
             Tile::Car(ch) => {
                 return RenderCell {
                     character: Some(ch),
@@ -529,6 +538,7 @@ impl GameInstance {
                                             .saturating_scalar_mul_div(3, 2),
                                     ),
                                 });
+                                text.parts.push(StyledString::plain_text(".".to_string()));
                             }
                         }
                     }
@@ -674,7 +684,7 @@ impl GameInstance {
                         box_render_cell.with_character('╩'),
                     );
                 }
-                let messages_height = 10;
+                let messages_height = 9;
                 let mut ui_y = 0;
                 let ui_x = game_size.width() as i32 + 1;
                 let ui_width = fb.size().width() - ui_x as u32;
@@ -864,7 +874,7 @@ fn describe_tile(tile: Tile) -> Description {
                 },
             ]),
             description: Some(Text::new(vec![
-                StyledString::plain_text("Apply to sleep for the night and recover ".to_string()),
+                StyledString::plain_text("Apply to sleep for two hours and recover ".to_string()),
                 StyledString {
                     string: "energy".to_string(),
                     style: Style::new().with_bold(true).with_foreground(
@@ -887,7 +897,7 @@ fn describe_tile(tile: Tile) -> Description {
                 },
             ]),
             description: Some(Text::new(vec![StyledString::plain_text(
-                "Doesn't stay dead.".to_string(),
+                "It moves slowly.\n\nIt doesn't stay dead.".to_string(),
             )])),
         },
         Tile::ZombieCorpse => Description {
@@ -904,7 +914,20 @@ fn describe_tile(tile: Tile) -> Description {
                 "It will reanimate soon.".to_string(),
             )])),
         },
-
+        Tile::NightStalker => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "night stalker".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::NIGHT_STALKER.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![StyledString::plain_text(
+                "It comes out at night.\n\nIt can climb.\n\nIt's afraid of fire.".to_string(),
+            )])),
+        },
         Tile::Car(_) => Description {
             name: Text::new(vec![StyledString::plain_text("your car".to_string())]),
             description: Some(Text::new(vec![StyledString::plain_text(
@@ -946,7 +969,7 @@ fn describe_tile(tile: Tile) -> Description {
 
 fn terrain_type_text(terrain_type: TerrainType) -> Text {
     match terrain_type {
-        TerrainType::Forest => {
+        TerrainType::PinePlantation => {
             Text::new(vec![
                 StyledString::plain_text("You are driving along an abandoned fire trail through a pine plantation, overgrown with weeds. The trees, once organized into well-kempt rows, now stand at odd angles as they are reclaimed by nature.".to_string())
             ])
@@ -962,6 +985,12 @@ fn npc_type_to_styled_string(npc_type: NpcType) -> text::StyledString {
             style: Style::new()
                 .with_bold(true)
                 .with_foreground(colours::ZOMBIE.to_rgba32(255)),
+        },
+        NpcType::NightStalker => StyledString {
+            string: "night stalker".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::NIGHT_STALKER.to_rgba32(255)),
         },
     }
 }
@@ -1077,6 +1106,26 @@ pub fn message_to_text(message: Message) -> Text {
             },
             StyledString {
                 string: " corpse is destroyed!".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
+        Message::NightStalkerSpawn => Text::new(vec![StyledString {
+            string: "You hear the nearby sound of claws scratching at the earth.".to_string(),
+            style: Style::plain_text(),
+        }]),
+        Message::NightStalkerDespawn => Text::new(vec![
+            StyledString {
+                string: "The ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "night stalker".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::NIGHT_STALKER.to_rgba32(255)),
+            },
+            StyledString {
+                string: " burrows into the ground.".to_string(),
                 style: Style::plain_text(),
             },
         ]),

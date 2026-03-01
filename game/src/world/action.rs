@@ -7,7 +7,7 @@ use crate::{
 };
 use coord_2d::ICoord;
 use entity_table::Entity;
-use rand::Rng;
+use rand::{Rng, seq::IndexedRandom};
 
 impl World {
     pub fn damage_character<R: Rng>(
@@ -174,6 +174,42 @@ impl World {
         }
         for entity in to_resurrect {
             self.resurrect(entity);
+        }
+    }
+
+    pub fn handle_night_stalkers<R: Rng>(
+        &mut self,
+        time: crate::TimeOfDay,
+        rng: &mut R,
+        message_log: &mut Vec<Message>,
+    ) {
+        if time.is_night() {
+            if time.minute() % 30 == 0 {
+                let player_entity = self.components.player.entities().next().unwrap();
+                let player_coord = self.spatial_table.coord_of(player_entity).unwrap();
+                let spawn_candidates = self
+                    .spatial_table
+                    .grid_size()
+                    .icoord_iter_row_major()
+                    .filter(|coord| {
+                        let layers = self.spatial_table.layers_at(*coord).unwrap();
+                        if layers.feature.is_some() || layers.character.is_some() {
+                            return false;
+                        }
+                        let distance2 = coord.distance2(player_coord);
+                        distance2 > 40 && distance2 < 50
+                    })
+                    .collect::<Vec<_>>();
+                if let Some(&coord) = spawn_candidates.choose(rng) {
+                    self.spawn_night_stalker(coord);
+                    message_log.push(Message::NightStalkerSpawn);
+                }
+            }
+        } else {
+            for entity in self.components.night_stalker.entities() {
+                self.components.to_remove.insert(entity, ());
+                message_log.push(Message::NightStalkerDespawn);
+            }
         }
     }
 }

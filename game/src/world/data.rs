@@ -31,6 +31,7 @@ declare_entity_module! {
         your_car: (),
         grass: (),
         zombie: (),
+        night_stalker: (),
         slow: u64,
     }
 }
@@ -58,6 +59,7 @@ pub enum Tile {
     CabinWall,
     Window,
     Floor,
+    NightStalker,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,12 +120,14 @@ impl Meter {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NpcType {
     Zombie,
+    NightStalker,
 }
 
 impl NpcType {
     pub fn tile(self) -> Tile {
         match self {
             Self::Zombie => Tile::Zombie,
+            Self::NightStalker => Tile::NightStalker,
         }
     }
 }

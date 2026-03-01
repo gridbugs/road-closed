@@ -113,9 +113,9 @@ impl TimeOfDay {
             0..=4 => Night,
             5 => Dawn,
             6..=11 => Morning,
-            12..=17 => Afternoon,
-            18 => Dusk,
-            19.. => Night,
+            12..=19 => Afternoon,
+            20 => Dusk,
+            21.. => Night,
         }
     }
     pub fn is_night(&self) -> bool {
@@ -123,6 +123,9 @@ impl TimeOfDay {
             PeriodOfDay::Night => true,
             _ => false,
         }
+    }
+    pub fn minute(&self) -> u8 {
+        self.minute
     }
 }
 
@@ -154,6 +157,8 @@ pub enum Message {
     DropItem(Item),
     GetOutOfCar,
     GetInCar,
+    NightStalkerSpawn,
+    NightStalkerDespawn,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -208,7 +213,7 @@ pub enum Input {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum TerrainType {
-    Forest,
+    PinePlantation,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -331,7 +336,7 @@ impl Game {
             game_over: false,
             mode: Mode::Driving,
             time_of_day: TimeOfDay { hour: 6, minute: 0 },
-            terrain_type: TerrainType::Forest,
+            terrain_type: TerrainType::PinePlantation,
         };
         game.systems();
         game.update_visibility();
@@ -376,7 +381,7 @@ impl Game {
                 update_fn,
             );
         } else {
-            let distance = if self.time_of_day.is_night() || true {
+            let distance = if self.time_of_day.is_night() {
                 Circle::new_squared(40)
             } else {
                 Circle::new_squared(300)
@@ -666,6 +671,8 @@ impl Game {
 
     fn systems(&mut self) {
         self.world.handle_resurrection();
+        self.world
+            .handle_night_stalkers(self.time_of_day, &mut self.rng, &mut self.message_log);
     }
 
     fn check_game_over(&mut self) -> Option<GameControlFlow> {

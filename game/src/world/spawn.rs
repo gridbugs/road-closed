@@ -142,7 +142,7 @@ impl World {
             (coord, Layer::Item),
             entity_data! {
                 tile: Tile::Item(Item::Firewood),
-                solid: (),
+                item: Item::Firewood,
             },
         )
     }
@@ -207,6 +207,27 @@ impl World {
                 bump_damage: 1..=3,
                 zombie: (),
                 slow: 2,
+            },
+        )
+    }
+
+    pub fn spawn_night_stalker(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Character),
+            entity_data! {
+                tile: Tile::NightStalker,
+                npc: Npc {
+                    disposition: Disposition::Hostile,
+                    movement: NpcMovement {
+                        can_traverse_difficult: true,
+                        can_open_doors: true,
+                    },
+                },
+                character: (),
+                npc_type: NpcType::NightStalker,
+                health: Meter::new_full(10),
+                bump_damage: 4..=6,
+                night_stalker: (),
             },
         )
     }

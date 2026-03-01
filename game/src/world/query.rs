@@ -1,11 +1,11 @@
 use crate::{
-    world::{data::*, spatial::Layers},
     World,
+    world::{data::*, spatial::Layers},
 };
 use coord_2d::ICoord;
 use direction::CardinalDirection;
 use entity_table::Entity;
-use rand::{prelude::IndexedRandom, seq::SliceRandom, Rng};
+use rand::{Rng, prelude::IndexedRandom, seq::SliceRandom};
 
 impl World {
     pub fn entity_coord(&self, entity: Entity) -> Option<ICoord> {

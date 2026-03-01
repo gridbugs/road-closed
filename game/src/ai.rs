@@ -272,7 +272,7 @@ impl<'a, R: Rng> BestSearch for Wander<'a, R> {
                         let can_see_character = has_line_of_sight(
                             my_coord,
                             coord,
-                            vision_distance::Circle::new_squared(40),
+                            vision_distance::Circle::new_squared(200),
                             self.world,
                         );
                         if can_see_character && self.rng.random_range(0u8..4) > 0 {
@@ -328,7 +328,7 @@ impl Agent {
     pub fn new(size: UCoord) -> Self {
         Self {
             last_seen_grid: LastSeenGrid::new(size),
-            vision_distance: vision_distance::Circle::new_squared(40),
+            vision_distance: vision_distance::Circle::new_squared(200),
             behaviour: Behaviour::Wander { avoid: true },
         }
     }

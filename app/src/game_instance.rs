@@ -138,7 +138,7 @@ impl GameInstance {
                 return RenderCell {
                     character: Some('.'),
                     style: Style::new()
-                        .with_bold(true)
+                        .with_bold(false)
                         .with_foreground(colours::GROUND.to_rgba32(255)),
                 };
             }
@@ -146,7 +146,7 @@ impl GameInstance {
                 return RenderCell {
                     character: Some('.'),
                     style: Style::new()
-                        .with_bold(true)
+                        .with_bold(false)
                         .with_foreground(colours::ROAD.to_rgba32(255)),
                 };
             }
@@ -158,7 +158,14 @@ impl GameInstance {
                         .with_foreground(colours::TREE.to_rgba32(255)),
                 };
             }
-
+            Tile::DeadTree => {
+                return RenderCell {
+                    character: Some('&'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::DEAD_TREE.to_rgba32(255)),
+                };
+            }
             Tile::Wall => {
                 return RenderCell {
                     character: Some('#'),
@@ -171,7 +178,7 @@ impl GameInstance {
                 return RenderCell {
                     character: Some('%'),
                     style: Style::new()
-                        .with_bold(true)
+                        .with_bold(false)
                         .with_foreground(Rgba32::new_grey(255)),
                 };
             }
@@ -199,9 +206,25 @@ impl GameInstance {
                         .with_foreground(colours::MED_KIT.to_rgba32(255)),
                 };
             }
+            Tile::Item(Item::Firewood) => {
+                return RenderCell {
+                    character: Some('*'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::FIREWOOD.to_rgba32(255)),
+                };
+            }
             Tile::Zombie => {
                 return RenderCell {
                     character: Some('z'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::ZOMBIE.to_rgba32(255)),
+                };
+            }
+            Tile::ZombieCorpse => {
+                return RenderCell {
+                    character: Some('?'),
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::ZOMBIE.to_rgba32(255)),
@@ -213,6 +236,54 @@ impl GameInstance {
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::CAR.to_rgba32(255)),
+                };
+            }
+            Tile::FallenTree => {
+                return RenderCell {
+                    character: Some('%'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::DEAD_TREE.to_rgba32(255)),
+                };
+            }
+            Tile::Grass => {
+                return RenderCell {
+                    character: Some('"'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::GRASS.to_rgba32(255)),
+                };
+            }
+            Tile::CrushedGrass => {
+                return RenderCell {
+                    character: Some('\''),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::GRASS.to_rgba32(255)),
+                };
+            }
+            Tile::CabinWall => {
+                return RenderCell {
+                    character: Some('#'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::CABIN_WALL.to_rgba32(255)),
+                };
+            }
+            Tile::Window => {
+                return RenderCell {
+                    character: Some('='),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::CABIN_WALL.to_rgba32(255)),
+                };
+            }
+            Tile::Floor => {
+                return RenderCell {
+                    character: Some('.'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::FLOOR.to_rgba32(255)),
                 };
             }
         }
@@ -321,8 +392,8 @@ impl GameInstance {
                     .push(StyledString::plain_text(format!(" (x{})", count)));
                 text
             };
-            text.parts = [vec![StyledString::plain_text("> ".to_string())], text.parts].concat();
-            let alpha = 255 - (i * 40).min(220) as u8;
+            text.parts = [vec![StyledString::plain_text("".to_string())], text.parts].concat();
+            let alpha = 255 - (i * 30).min(220) as u8;
             for part in &mut text.parts {
                 part.style = part.style.with_foreground(
                     part.style
@@ -405,14 +476,12 @@ impl GameInstance {
                         description,
                     } = describe_tile(tile);
                     let mut text = Text {
-                        parts: vec![StyledString::plain_text("There is ".to_string())],
+                        parts: vec![StyledString::plain_text("Here: ".to_string())],
                     };
                     text.parts.append(&mut name.parts);
                     if let Some(end) = end {
                         text.parts.push(StyledString::plain_text(format!(" {end}")));
                     }
-                    text.parts
-                        .push(StyledString::plain_text(" here.".to_string()));
                     if let Some(mut description) = description {
                         text.parts
                             .push(StyledString::plain_text("\n\n".to_string()));
@@ -609,7 +678,7 @@ impl GameInstance {
                 let mut ui_y = 0;
                 let ui_x = game_size.width() as i32 + 1;
                 let ui_width = fb.size().width() - ui_x as u32;
-                let ui_ctx = ctx.add_x(ui_x).set_width(ui_width);
+                let ui_ctx = ctx.add_x(ui_x).set_width(ui_width + 1);
                 for i in 0..ui_width {
                     let render_cell = box_render_cell.with_character('═');
                     let coord = ICoord::new(i as i32, ui_y);
@@ -773,9 +842,36 @@ fn describe_tile(tile: Tile) -> Description {
                 StyledString::plain_text("Apply to recover ".to_string()),
                 StyledString {
                     string: "health.".to_string(),
-                    style: Style::new()
-                        .with_bold(true)
-                        .with_foreground(colours::HEALTH.to_rgba32(255)),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::HEALTH
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(".".to_string()),
+            ])),
+        },
+        Tile::Item(Item::Firewood) => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a piece of ".to_string()),
+                StyledString {
+                    string: "firewood".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::FIREWOOD
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+            ]),
+            description: Some(Text::new(vec![
+                StyledString::plain_text("Apply to sleep for the night and recover ".to_string()),
+                StyledString {
+                    string: "energy".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::ENERGY
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
                 },
                 StyledString::plain_text(".".to_string()),
             ])),
@@ -794,11 +890,56 @@ fn describe_tile(tile: Tile) -> Description {
                 "Doesn't stay dead.".to_string(),
             )])),
         },
+        Tile::ZombieCorpse => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("the corpse of a ".to_string()),
+                StyledString {
+                    string: "zombie".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::ZOMBIE.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![StyledString::plain_text(
+                "It will reanimate soon.".to_string(),
+            )])),
+        },
+
         Tile::Car(_) => Description {
             name: Text::new(vec![StyledString::plain_text("your car".to_string())]),
             description: Some(Text::new(vec![StyledString::plain_text(
                 "Walk into the car to start driving.".to_string(),
             )])),
+        },
+        Tile::DeadTree => Description {
+            name: Text::new(vec![StyledString::plain_text("a dead tree".to_string())]),
+            description: None,
+        },
+        Tile::FallenTree => Description {
+            name: Text::new(vec![StyledString::plain_text("a fallen tree".to_string())]),
+            description: None,
+        },
+        Tile::Grass => Description {
+            name: Text::new(vec![StyledString::plain_text("some grass".to_string())]),
+            description: None,
+        },
+        Tile::CrushedGrass => Description {
+            name: Text::new(vec![StyledString::plain_text(
+                "some crushed grass".to_string(),
+            )]),
+            description: None,
+        },
+        Tile::CabinWall => Description {
+            name: Text::new(vec![StyledString::plain_text("a cabin wall".to_string())]),
+            description: None,
+        },
+        Tile::Window => Description {
+            name: Text::new(vec![StyledString::plain_text("a window".to_string())]),
+            description: None,
+        },
+        Tile::Floor => Description {
+            name: Text::new(vec![StyledString::plain_text("the floor".to_string())]),
+            description: None,
         },
     }
 }
@@ -839,6 +980,9 @@ pub fn message_to_text(message: Message) -> Text {
         )]),
         Message::ActionError(e) => Text::new(vec![StyledString::plain_text(match e {
             ActionError::InvalidMove => "You can't walk there.".to_string(),
+            ActionError::MoveOutOfBounds => {
+                "You don't want to walk too far from your car.".to_string()
+            }
             ActionError::NothingToGet => "There is nothing here to pick up.".to_string(),
             ActionError::InventoryIsFull => {
                 return Text::new(vec![
@@ -855,9 +999,9 @@ pub fn message_to_text(message: Message) -> Text {
             }
         })]),
         Message::NpcHit { npc_type, damage } => Text::new(vec![
-            StyledString::plain_text("The ".to_string()),
+            StyledString::plain_text("You hit the ".to_string()),
             npc_type_to_styled_string(npc_type),
-            StyledString::plain_text(" is hit for ".to_string()),
+            StyledString::plain_text(" for ".to_string()),
             StyledString {
                 string: format!("{damage}"),
                 style: Style::plain_text().with_bold(true),
@@ -898,12 +1042,44 @@ pub fn message_to_text(message: Message) -> Text {
         }]),
         Message::GetInCar => Text::new(vec![StyledString {
             string: "You get in the car.".to_string(),
-            style: Style::plain_text().with_foreground(Rgb24::new(255, 0, 0).to_rgba32(255)),
+            style: Style::plain_text(),
         }]),
         Message::GetOutOfCar => Text::new(vec![StyledString {
             string: "You get out of the car.".to_string(),
             style: Style::plain_text(),
         }]),
+        Message::KickZombieCorpse => Text::new(vec![
+            StyledString {
+                string: "You kick the ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "zombie".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::ZOMBIE.to_rgba32(255)),
+            },
+            StyledString {
+                string: " corpse!".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
+        Message::DestroyZombieCorpse => Text::new(vec![
+            StyledString {
+                string: "The ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "zombie".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::ZOMBIE.to_rgba32(255)),
+            },
+            StyledString {
+                string: " corpse is destroyed!".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
     }
 }
 
@@ -916,11 +1092,18 @@ fn item_styled_string_for_message(item: Item) -> text::StyledString {
                 .with_bold(true)
                 .with_foreground(colours::MED_KIT.to_rgba32(255)),
         },
+        Item::Firewood => StyledString {
+            string: "firewood".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::FIREWOOD.to_rgba32(255)),
+        },
     }
 }
 
 pub fn item_string_for_menu(item: Item) -> String {
     match item {
-        Item::MedKit => "MedKit".to_string(),
+        Item::MedKit => "Medkit".to_string(),
+        Item::Firewood => "Firewood".to_string(),
     }
 }

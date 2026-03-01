@@ -1,9 +1,9 @@
 use crate::{
+    ExternalEvent, Message, World,
     world::{
         data::*,
         spatial::{Layer, Location},
     },
-    ExternalEvent, Message, World,
 };
 use coord_2d::ICoord;
 use entity_table::Entity;
@@ -32,6 +32,14 @@ impl World {
             self.character_die(character, rng, external_events, message_log);
         } else {
             hit_points.decrease(hit_points_to_lose);
+            if hit_points_to_lose > 0 {
+                if let Some(&npc_type) = self.components.npc_type.get(character) {
+                    message_log.push(Message::NpcHit {
+                        npc_type,
+                        damage: hit_points_to_lose,
+                    });
+                }
+            }
             if self.components.split_on_damage.contains(character) && hit_points.current() > 1 {
                 if let Some(coord) = self.spatial_table.coord_of(character) {
                     let copy_hit_poinst = hit_points.current() / 2;
@@ -97,7 +105,12 @@ impl World {
         if let Some(&npc_type) = self.components.npc_type.get(character) {
             message_log.push(Message::NpcDies(npc_type));
         }
-        self.components.to_remove.insert(character, ());
+        if self.components.zombie.contains(character) {
+            self.components.tile.insert(character, Tile::ZombieCorpse);
+            self.components.character.remove(character);
+        } else {
+            self.components.to_remove.insert(character, ());
+        }
     }
 
     pub fn player_bump_combat<R: Rng>(
@@ -120,6 +133,47 @@ impl World {
                     layer: Some(Layer::Item),
                 },
             );
+        }
+    }
+
+    fn resurrect(&mut self, entity: Entity) {
+        let current_coord = self.spatial_table.coord_of(entity).unwrap();
+        if let Some(coord) = self.nearest_characterless_coord(current_coord) {
+            let _ = self.spatial_table.update(
+                entity,
+                Location {
+                    coord,
+                    layer: Some(Layer::Character),
+                },
+            );
+        } else {
+            return;
+        }
+        if let Some(resurrects_in) = self.components.resurrects_in.get_mut(entity) {
+            resurrects_in.set_current(resurrects_in.max());
+        }
+        if let Some(health) = self.components.health.get_mut(entity) {
+            health.set_current(health.max());
+        }
+        self.components.character.insert(entity, ());
+        self.components.tile.insert(entity, Tile::Zombie);
+    }
+
+    pub fn handle_resurrection(&mut self) {
+        let mut to_resurrect = Vec::new();
+        for (entity, resurrects_in) in self.components.resurrects_in.iter_mut() {
+            if let Some(health) = self.components.health.get(entity) {
+                if health.current() == 0 {
+                    if resurrects_in.current() == 0 {
+                        to_resurrect.push(entity);
+                    } else {
+                        resurrects_in.decrease(1);
+                    }
+                }
+            }
+        }
+        for entity in to_resurrect {
+            self.resurrect(entity);
         }
     }
 }

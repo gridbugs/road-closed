@@ -10,3 +10,10 @@ line_2d = "0.6"
 direction = { version = "0.19", features = ["rand"] }
 rand = "0.9"
 vector = { path = "../util/vector" }
+perlin2 = "0.2"
+
+[[example]]
+name = "city"
+
+[[example]]
+name = "pine_plantation"

@@ -89,10 +89,22 @@ pub struct TimeOfDay {
 }
 
 impl TimeOfDay {
+    #[must_use]
     pub fn add_hours(&self, hours: u32) -> Self {
         Self {
             hour: ((self.hour as u32 + hours) % 24) as u8,
             minute: self.minute,
+        }
+    }
+
+    #[must_use]
+    pub fn add_minutes(&self, minutes: u32) -> Self {
+        let minutes = self.minute as u32 + minutes;
+        let hours = minutes / 60;
+        let minute = (minutes % 60) as u8;
+        Self {
+            minute,
+            ..self.add_hours(hours)
         }
     }
     pub fn period(&self) -> PeriodOfDay {
@@ -131,6 +143,8 @@ pub enum Message {
         npc_type: NpcType,
         damage: u32,
     },
+    KickZombieCorpse,
+    DestroyZombieCorpse,
     YouDie,
     NpcDies(NpcType),
     OpenDoor,
@@ -264,15 +278,9 @@ impl VisibleWorld for World {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActionError {
     InvalidMove,
+    MoveOutOfBounds,
     NothingToGet,
     InventoryIsFull,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Level {
-    world: World,
-    visibility_grid: VisibilityGrid<VisibleCellData>,
-    agents: ComponentTable<Agent>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -298,10 +306,10 @@ impl Game {
     pub fn new<R: Rng>(config: &Config, base_rng: &mut R) -> Self {
         let mut rng = Isaac64Rng::seed_from_u64(base_rng.random());
         let animation_rng = Isaac64Rng::seed_from_u64(base_rng.random());
-        let terrain = Terrain::generate_text();
+        let terrain = Terrain::generate_pine_plantation(&mut rng);
         let mut world = terrain.world;
         let visibility_grid = VisibilityGrid::new(world.spatial_table.grid_size());
-        let player_spawn = ICoord::new(0, 0);
+        let player_spawn = terrain.player_spawn;
         let player_data = world::spawn::make_player();
         let player_location = Location {
             coord: player_spawn,
@@ -328,6 +336,17 @@ impl Game {
         game.systems();
         game.update_visibility();
         game
+    }
+
+    pub fn regenerate_terrain(&mut self) {
+        let terrain = Terrain::generate_pine_plantation(&mut self.rng);
+        let player_data = self.world.components.remove_entity_data(self.player_entity);
+        self.world = terrain.world;
+        let player_location = Location {
+            coord: terrain.player_spawn,
+            layer: Some(Layer::Character),
+        };
+        self.player_entity = self.world.insert_entity_data(player_location, player_data);
     }
 
     pub fn terrain_type(&self) -> TerrainType {
@@ -357,7 +376,11 @@ impl Game {
                 update_fn,
             );
         } else {
-            let distance = Circle::new_squared(300);
+            let distance = if self.time_of_day.is_night() || true {
+                Circle::new_squared(40)
+            } else {
+                Circle::new_squared(300)
+            };
             self.visibility_grid.update_custom(
                 Rgb24::new_grey(0),
                 &self.world,
@@ -438,7 +461,7 @@ impl Game {
         let new_player_coord = player_coord + direction.coord();
         if !new_player_coord.is_valid(self.world.size()) {
             // player would walk outside bounds of map
-            return Err(ActionError::InvalidMove);
+            return Err(ActionError::MoveOutOfBounds);
         }
         if let Some(layers) = self.world.spatial_table.layers_at(new_player_coord) {
             if let Some(feature_entity) = layers.feature {
@@ -467,13 +490,29 @@ impl Game {
                     return Ok(None);
                 }
             }
+            if let Some(floor_entity) = layers.floor {
+                if self.world.components.grass.contains(floor_entity) {
+                    self.world
+                        .components
+                        .tile
+                        .insert(floor_entity, Tile::CrushedGrass);
+                }
+            }
             if let Some(character_entity) = layers.character {
-                self.world.player_bump_combat(
-                    character_entity,
-                    &mut self.rng,
-                    &mut self.external_events,
-                    &mut self.message_log,
-                );
+                if self.world.components.character.contains(character_entity) {
+                    self.world.player_bump_combat(
+                        character_entity,
+                        &mut self.rng,
+                        &mut self.external_events,
+                        &mut self.message_log,
+                    );
+                } else if self.world.components.zombie.contains(character_entity) {
+                    self.message_log.push(Message::KickZombieCorpse);
+                    if self.rng.random::<f32>() < 0.25 {
+                        self.message_log.push(Message::DestroyZombieCorpse);
+                        self.world.remove_entity(character_entity);
+                    }
+                }
                 return Ok(None);
             }
             self.world
@@ -498,8 +537,12 @@ impl Game {
             // would walk outside bounds of map
             return None;
         }
+        let npc = self.world.components.npc.get(entity).unwrap();
         if let Some(&Layers {
-            feature, character, ..
+            feature,
+            character,
+            floor,
+            ..
         }) = self.world.spatial_table.layers_at(new_coord)
         {
             if let Some(feature_entity) = feature {
@@ -507,8 +550,15 @@ impl Game {
                 if let Some(DoorState::Closed) =
                     self.world.components.door_state.get(feature_entity)
                 {
-                    self.open_door(feature_entity);
-                    return None;
+                    if npc.movement.can_open_doors {
+                        self.open_door(feature_entity);
+                        return None;
+                    }
+                }
+                if self.world.components.difficult.contains(feature_entity) {
+                    if !npc.movement.can_traverse_difficult {
+                        return None;
+                    }
                 }
             }
             // Don't let them walk into other characters
@@ -530,6 +580,11 @@ impl Game {
                     );
                 }
                 return None;
+            }
+            if let Some(floor) = floor {
+                if self.world.components.grass.contains(floor) {
+                    self.world.components.tile.insert(floor, Tile::CrushedGrass);
+                }
             }
         }
         if !self
@@ -569,6 +624,15 @@ impl Game {
         self.ai_context.update(self.player_entity, &self.world);
         let agent_entities = self.agents.entities().collect::<Vec<_>>();
         for agent_entity in agent_entities {
+            if !self.world.components.character.contains(agent_entity) {
+                // so that dead zombies don't get a turn
+                continue;
+            }
+            if let Some(slow) = self.world.components.slow.get(agent_entity) {
+                if !self.turn_count.is_multiple_of(*slow) {
+                    continue;
+                }
+            }
             let ai_input = self.agents.get_mut(agent_entity).unwrap().act(
                 agent_entity,
                 &self.world,
@@ -590,6 +654,9 @@ impl Game {
         }
         self.systems();
         self.turn_count += 1;
+        if self.turn_count % 1 == 0 {
+            self.time_of_day = self.time_of_day.add_minutes(1);
+        }
         if let Some(win) = self.win() {
             self.update_visibility();
             return Some(GameControlFlow::Win(win));
@@ -597,7 +664,9 @@ impl Game {
         self.check_game_over()
     }
 
-    fn systems(&mut self) {}
+    fn systems(&mut self) {
+        self.world.handle_resurrection();
+    }
 
     fn check_game_over(&mut self) -> Option<GameControlFlow> {
         if self.game_over {
@@ -693,6 +762,7 @@ impl Game {
             }
             Input::StopDriving => {
                 self.mode = Mode::Walking;
+                self.regenerate_terrain();
                 self.message_log.push(Message::GetOutOfCar);
                 None
             }
@@ -759,7 +829,8 @@ impl Game {
         if let Some(item_entity) = inventory.get(i) {
             if let Some(&item) = self.world.components.item.get(item_entity) {
                 match item {
-                    Item::MedKit => (),
+                    Item::MedKit => todo!(),
+                    Item::Firewood => todo!(),
                 }
             }
         }

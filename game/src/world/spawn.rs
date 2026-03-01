@@ -45,11 +45,11 @@ impl World {
         entity
     }
 
-    pub fn spawn_wall(&mut self, coord: ICoord) -> Entity {
+    pub fn spawn_cabin_wall(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
             entity_data! {
-                tile: Tile::Wall,
+                tile: Tile::CabinWall,
                 solid: (),
                 opacity: 255,
             },
@@ -76,6 +76,25 @@ impl World {
         )
     }
 
+    pub fn spawn_floor(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Floor),
+            entity_data! {
+                tile: Tile::Floor,
+            },
+        )
+    }
+
+    pub fn spawn_grass(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Floor),
+            entity_data! {
+                tile: Tile::Grass,
+                grass: (),
+            },
+        )
+    }
+
     pub fn spawn_road(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Floor),
@@ -91,6 +110,49 @@ impl World {
             entity_data! {
                 tile: Tile::Tree,
                 opacity: 127,
+                solid: (),
+            },
+        )
+    }
+
+    pub fn spawn_dead_tree(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::DeadTree,
+                opacity: 63,
+                solid: (),
+            },
+        )
+    }
+
+    pub fn spawn_fallen_tree(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::FallenTree,
+                difficult: (),
+                solid: (),
+            },
+        )
+    }
+
+    pub fn spawn_firewood(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Item),
+            entity_data! {
+                tile: Tile::Item(Item::Firewood),
+                solid: (),
+            },
+        )
+    }
+
+    pub fn spawn_window(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::Window,
+                difficult: (),
                 solid: (),
             },
         )
@@ -126,7 +188,7 @@ impl World {
         entity
     }
 
-    pub fn spawn_zombie<R: Rng>(&mut self, coord: ICoord, rng: &mut R) -> Entity {
+    pub fn spawn_zombie(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Character),
             entity_data! {
@@ -143,6 +205,8 @@ impl World {
                 health: Meter::new_full(4),
                 resurrects_in: Meter::new_full(10),
                 bump_damage: 1..=3,
+                zombie: (),
+                slow: 2,
             },
         )
     }
@@ -153,6 +217,8 @@ impl World {
             entity_data! {
                 tile: Tile::Car(ch),
                 your_car: (),
+                difficult: (),
+                solid: (),
             },
         )
     }

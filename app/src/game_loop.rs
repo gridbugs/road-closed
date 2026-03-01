@@ -373,7 +373,7 @@ impl GameLoopData {
                 .map(|s| s.offset)
                 .unwrap_or(ICoord::new(0, 0));
             instance.render(ctx, fb, self.cursor, offset);
-            let colour = colours::CURSOR.to_rgba32(127);
+            let colour = colours::CURSOR.to_rgba32(187);
             if let Some(cursor) = self.cursor {
                 let render_cell = RenderCell::default().with_background(colour);
                 fb.set_cell_relative_to_ctx(ctx, cursor, 50, render_cell);
@@ -846,6 +846,7 @@ fn apply_item_description(item: Item) -> String {
     use Item::*;
     match item {
         MedKit => "Apply to recover health.".to_string(),
+        Firewood => "Apply to sleep for the night and recover energy.".to_string(),
     }
 }
 
@@ -925,45 +926,35 @@ fn game_menu(menu_witness: witness::Menu) -> AppCF<Witness> {
     })
 }
 
-pub fn pre_game_screen() -> AppCF<()> {
-    if cfg!(feature = "web") {
-        text::press_any_key_to_begin(MAIN_MENU_TEXT_WIDTH).press_any_key()
-    } else {
-        unit().some()
-    }
-}
-
 pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
     use GameLoopState::*;
-    pre_game_screen().then(|| {
-        loop_(initial_state, |state| match state {
-            Playing(witness) => match witness {
-                Witness::Running(running) => game_instance_component(running).continue_(),
-                Witness::GameOver(reason) => game_over(reason).map_val(|| MainMenu).continue_(),
-                Witness::Win(win_) => win(win_.win).map_val(|| MainMenu).continue_(),
-                Witness::Menu(menu_) => game_menu(menu_).map(Playing).continue_(),
-            },
-            Paused(running) => pause(running).map(|pause_output| match pause_output {
-                PauseOutput::ContinueGame { running } => {
-                    LoopControl::Continue(Playing(running.into_witness()))
-                }
-                PauseOutput::MainMenu => LoopControl::Continue(MainMenu),
-                PauseOutput::Quit => LoopControl::Break(()),
-            }),
-            MainMenu => main_menu_loop().map(|main_menu_output| match main_menu_output {
-                MainMenuOutput::NewGame { new_running } => {
-                    LoopControl::Continue(Playing(new_running.into_witness()))
-                }
-                MainMenuOutput::Quit => LoopControl::Break(()),
-            }),
-            Help(running) => help()
-                .map(|()| GameLoopState::Playing(running.into_witness()))
-                .continue_(),
-            MessageLog(running) => message_log(MessageLogReason::Gameplay)
-                .map(|()| GameLoopState::Playing(running.into_witness()))
-                .continue_(),
-        })
-        .bound_size(UCoord::new_u16(80, 30))
-        .on_exit_with_state(|state| state.try_save_instance_cheat())
+    loop_(initial_state, |state| match state {
+        Playing(witness) => match witness {
+            Witness::Running(running) => game_instance_component(running).continue_(),
+            Witness::GameOver(reason) => game_over(reason).map_val(|| MainMenu).continue_(),
+            Witness::Win(win_) => win(win_.win).map_val(|| MainMenu).continue_(),
+            Witness::Menu(menu_) => game_menu(menu_).map(Playing).continue_(),
+        },
+        Paused(running) => pause(running).map(|pause_output| match pause_output {
+            PauseOutput::ContinueGame { running } => {
+                LoopControl::Continue(Playing(running.into_witness()))
+            }
+            PauseOutput::MainMenu => LoopControl::Continue(MainMenu),
+            PauseOutput::Quit => LoopControl::Break(()),
+        }),
+        MainMenu => main_menu_loop().map(|main_menu_output| match main_menu_output {
+            MainMenuOutput::NewGame { new_running } => {
+                LoopControl::Continue(Playing(new_running.into_witness()))
+            }
+            MainMenuOutput::Quit => LoopControl::Break(()),
+        }),
+        Help(running) => help()
+            .map(|()| GameLoopState::Playing(running.into_witness()))
+            .continue_(),
+        MessageLog(running) => message_log(MessageLogReason::Gameplay)
+            .map(|()| GameLoopState::Playing(running.into_witness()))
+            .continue_(),
     })
+    .bound_size(UCoord::new_u16(80, 30))
+    .on_exit_with_state(|state| state.try_save_instance_cheat())
 }

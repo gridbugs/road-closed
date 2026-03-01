@@ -29,6 +29,9 @@ declare_entity_module! {
         bump_damage: RangeInclusive<u32>,
         difficult: (),
         your_car: (),
+        grass: (),
+        zombie: (),
+        slow: u64,
     }
 }
 pub use components::{Components, EntityData, EntityUpdate};
@@ -40,13 +43,21 @@ pub enum Tile {
     Ground,
     Road,
     Tree,
+    DeadTree,
+    FallenTree,
     Wall,
     DoorClosed,
     DoorOpen,
     Zombie,
+    ZombieCorpse,
     Debris,
     Item(Item),
     Car(char),
+    Grass,
+    CrushedGrass,
+    CabinWall,
+    Window,
+    Floor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +131,7 @@ impl NpcType {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Item {
     MedKit,
+    Firewood,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

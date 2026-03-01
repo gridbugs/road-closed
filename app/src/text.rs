@@ -141,14 +141,6 @@ pub fn help3(width: u32) -> AppCF<()> {
     .press_any_key()
 }
 
-pub fn press_any_key_to_begin(width: u32) -> CF<(), State> {
-    let t = |s: &str| StyledString {
-        string: s.to_string(),
-        style: Style::plain_text(),
-    };
-    text_component(width, vec![t("Press any key to begin...")])
-}
-
 pub fn loading(width: u32) -> AppCF<()> {
     let t = |s: &str| StyledString {
         string: s.to_string(),
@@ -170,7 +162,7 @@ fn game_over_text(width: u32, _reason: GameOverReason) -> CF<(), State> {
         string: s.to_string(),
         style: Style::plain_text(),
     };
-    let text = vec![t("You have died... (press any key to continue)")];
+    let text = vec![t("You have died.\n\nPress any key to continue...")];
     text_component(width, text)
 }
 

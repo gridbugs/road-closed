@@ -7,9 +7,10 @@ pub const MENU_BACKGROUND: Rgb24 = Rgb24::new_grey(0);
 pub const MENU_SELECT_BACKGROUND: Rgb24 = TITLE_BACKGROUND.saturating_scalar_mul_div(3, 4);
 pub const MENU_SELECT_FOREGROUND: Rgb24 = Rgb24::new_grey(255);
 pub const BORDER: Rgb24 = TITLE_BACKGROUND;
-pub const CURSOR: Rgb24 = TITLE_BACKGROUND;
+pub const CURSOR: Rgb24 = Rgb24::new_grey(63);
 
 pub const MED_KIT: Rgb24 = HEALTH.saturating_scalar_mul_div(2, 1);
+pub const FIREWOOD: Rgb24 = Rgb24::hex(0xeda12f);
 
 pub const ZOMBIE: Rgb24 = Rgb24::new(255, 51, 0);
 pub const HEALTH: Rgb24 = Rgb24::hex(0x93150e);
@@ -17,8 +18,12 @@ pub const ENERGY: Rgb24 = Rgb24::hex(0x2c720e);
 pub const FUEL: Rgb24 = Rgb24::hex(0x520b75);
 pub const FOOD: Rgb24 = Rgb24::hex(0x5e4603);
 
+pub const FLOOR: Rgb24 = Rgb24::new_grey(127);
 pub const GROUND: Rgb24 = Rgb24::hex(0x326b0c);
+pub const GRASS: Rgb24 = GROUND;
 pub const ROAD: Rgb24 = Rgb24::new_grey(63);
 pub const WALL: Rgb24 = Rgb24::new_grey(187);
-pub const TREE: Rgb24 = Rgb24::hex(0x0b4f17);
+pub const TREE: Rgb24 = Rgb24::hex(0x5db522);
+pub const DEAD_TREE: Rgb24 = Rgb24::hex(0x875811);
+pub const CABIN_WALL: Rgb24 = Rgb24::hex(0x96834b);
 pub const CAR: Rgb24 = Rgb24::hex(0xdbd8d6);

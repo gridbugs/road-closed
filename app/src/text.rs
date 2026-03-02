@@ -1,4 +1,4 @@
-use crate::game_loop::{AppCF, State};
+use crate::game_loop::{AppCF, State, Wish};
 use chargrid::{
     control_flow::*,
     prelude::*,
@@ -208,4 +208,31 @@ pub fn bad_win(width: u32) -> AppCF<()> {
     bad_win_text(width)
         .delay(Duration::from_secs(1))
         .then(move || bad_win_text(width).press_any_key())
+}
+
+pub fn wishes(width: u32) -> AppCF<()> {
+    let t = |s: String| StyledString {
+        string: s,
+        style: Style::plain_text(),
+    };
+    on_state_then(move |state: &mut State| {
+        let wishes = &state.wishes;
+        text_component(
+            width,
+            wishes
+                .iter()
+                .rev()
+                .flat_map(|wish| {
+                    vec![
+                        StyledString {
+                            string: format!("{}\n", wish.time),
+                            style: Style::plain_text().with_foreground(Rgba32::new_grey(127)),
+                        },
+                        t(format!("{}\n\n", wish.wish)),
+                    ]
+                })
+                .collect(),
+        )
+    })
+    .press_any_key()
 }

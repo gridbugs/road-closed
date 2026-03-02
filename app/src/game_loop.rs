@@ -4,7 +4,9 @@ use crate::{
     game_instance::{GameInstance, GameInstanceStorable, item_string_for_menu, message_to_text},
     text,
 };
-use chargrid::{self, border::BorderStyle, control_flow::*, menu, prelude::*};
+use chargrid::{
+    self, border::BorderStyle, control_flow::*, menu, prelude::*, text_field::TextField,
+};
 use game::{
     Config as GameConfig, GameOverReason, Item, Menu as GameMenu, MenuChoice as GameMenuChoice,
     Mode, Victory,
@@ -113,12 +115,14 @@ pub struct AppStorage {
     pub save_game_key: String,
     pub config_key: String,
     pub controls_key: String,
+    pub wishes_key: String,
 }
 
 impl AppStorage {
     const SAVE_GAME_STORAGE_FORMAT: format::Bincode = format::Bincode;
     const CONFIG_STORAGE_FORMAT: format::JsonPretty = format::JsonPretty;
     const CONTROLS_STORAGE_FORMAT: format::JsonPretty = format::JsonPretty;
+    const WISHES_STORAGE_FORMAT: format::JsonPretty = format::JsonPretty;
 
     fn save_game(&mut self, instance: &GameInstanceStorable) {
         let result = self.handle.store(
@@ -255,6 +259,47 @@ impl AppStorage {
             Ok(instance) => Some(instance),
         }
     }
+
+    fn save_wishes(&mut self, wishes: &Vec<Wish>) {
+        let result = self
+            .handle
+            .store(&self.wishes_key, &wishes, Self::WISHES_STORAGE_FORMAT);
+        if let Err(e) = result {
+            use storage::{StoreError, StoreRawError};
+            match e {
+                StoreError::FormatError(e) => log::error!("Failed to format wishes: {}", e),
+                StoreError::Raw(e) => match e {
+                    StoreRawError::IoError(e) => {
+                        log::error!("Error while writing wishes: {}", e)
+                    }
+                },
+            }
+        }
+    }
+
+    fn load_wishes(&self) -> Option<Vec<Wish>> {
+        let result = self
+            .handle
+            .load::<_, Vec<Wish>, _>(&self.wishes_key, Self::WISHES_STORAGE_FORMAT);
+        match result {
+            Err(e) => {
+                use storage::{LoadError, LoadRawError};
+                match e {
+                    LoadError::FormatError(e) => {
+                        log::error!("Failed to parse wishes file: {}", e)
+                    }
+                    LoadError::Raw(e) => match e {
+                        LoadRawError::IoError(e) => {
+                            log::error!("Error while reading wishes: {}", e)
+                        }
+                        LoadRawError::NoSuchKey => (),
+                    },
+                }
+                None
+            }
+            Ok(wishes) => Some(wishes),
+        }
+    }
 }
 
 fn new_game(
@@ -265,6 +310,12 @@ fn new_game(
     GameInstance::new(game_config, &mut rng)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Wish {
+    pub time: chrono::DateTime<chrono::Local>,
+    pub wish: String,
+}
+
 pub struct GameLoopData {
     instance: Option<GameInstance>,
     controls: Controls,
@@ -273,6 +324,7 @@ pub struct GameLoopData {
     rng_seed_source: RngSeedSource,
     config: Config,
     cursor: Option<ICoord>,
+    pub wishes: Vec<Wish>,
 }
 
 impl GameLoopData {
@@ -311,6 +363,11 @@ impl GameLoopData {
             storage.save_controls(&controls);
             controls
         };
+        let wishes = if let Some(wishes) = storage.load_wishes() {
+            wishes
+        } else {
+            Vec::new()
+        };
         (
             Self {
                 instance,
@@ -320,6 +377,7 @@ impl GameLoopData {
                 rng_seed_source,
                 config,
                 cursor: None,
+                wishes,
             },
             state,
         )
@@ -356,6 +414,10 @@ impl GameLoopData {
 
     fn save_config(&mut self) {
         self.storage.save_config(&self.config);
+    }
+
+    fn save_wishes(&mut self) {
+        self.storage.save_wishes(&self.wishes);
     }
 
     fn render(&self, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -478,6 +540,7 @@ pub enum GameLoopState {
     MainMenu,
     Help(witness::Running),
     MessageLog(witness::Running),
+    Wishes,
 }
 
 impl Component for GameInstanceComponent {
@@ -520,6 +583,7 @@ enum MainMenuEntry {
     NewGame,
     Help,
     Quit,
+    Wishes,
 }
 
 fn title_decorate<T: 'static>(cf: AppCF<T>) -> AppCF<T> {
@@ -550,18 +614,23 @@ fn title_decorate<T: 'static>(cf: AppCF<T>) -> AppCF<T> {
 fn main_menu() -> AppCF<MainMenuEntry> {
     use MainMenuEntry::*;
     use menu::builder::*;
-    let mut builder = menu_builder().vi_keys();
-    let mut add_item = |entry, name, ch: char| {
-        let identifier =
-            MENU_FADE_SPEC.identifier(move |b| write!(b, "({}) {}", ch, name).unwrap());
-        builder.add_item_mut(item(entry, identifier).add_hotkey_char(ch));
-    };
-    add_item(NewGame, "New Game", 'n');
-    add_item(Help, "Help", 'h');
-    if !cfg!(feature = "web") {
-        add_item(Quit, "Quit", 'q');
-    }
-    builder.build_cf()
+    on_state_then(|state: &mut State| {
+        let mut builder = menu_builder().vi_keys();
+        let mut add_item = |entry, name, ch: char| {
+            let identifier =
+                MENU_FADE_SPEC.identifier(move |b| write!(b, "({}) {}", ch, name).unwrap());
+            builder.add_item_mut(item(entry, identifier).add_hotkey_char(ch));
+        };
+        add_item(NewGame, "New Game", 'n');
+        add_item(Help, "Help", 'h');
+        if !state.wishes.is_empty() {
+            add_item(Wishes, "Wishes", 'w');
+        }
+        if !cfg!(feature = "web") {
+            add_item(Quit, "Quit", 'q');
+        }
+        builder.build_cf()
+    })
 }
 
 enum MainMenuOutput {
@@ -579,6 +648,20 @@ fn help() -> AppCF<()> {
     use chargrid::pad_by::Padding;
     menu_style(
         text::help(60)
+            .pad_by(Padding {
+                left: 1,
+                right: 4,
+                top: 1,
+                bottom: 1,
+            })
+            .overlay(background(), 1),
+    )
+}
+
+fn wishes() -> AppCF<()> {
+    use chargrid::pad_by::Padding;
+    menu_style(
+        text::wishes(60)
             .pad_by(Padding {
                 left: 1,
                 right: 4,
@@ -709,6 +792,7 @@ fn main_menu_loop() -> AppCF<MainMenuOutput> {
                 })
                 .break_(),
             Help => help().continue_(),
+            Wishes => wishes().continue_(),
             Quit => val_once(MainMenuOutput::Quit).break_(),
         },
     )
@@ -802,13 +886,18 @@ fn game_instance_component(_running: witness::Running) -> AppCF<GameLoopState> {
     cf(GameInstanceComponent).some().no_peek()
 }
 
-fn win(win: game::Win) -> AppCF<()> {
-    let text = match win {
-        game::Win::Good => text::win(MAIN_MENU_TEXT_WIDTH),
-        game::Win::Bad => text::bad_win(MAIN_MENU_TEXT_WIDTH),
-    };
-    menu_style(text)
-        .then(|| message_log(MessageLogReason::Win))
+fn win() -> AppCF<()> {
+    let text_field = cf(TextField::with_initial_string(60, "I wish ".to_string())).ignore_state();
+    menu_style(text_field)
+        .and_then_side_effect(|wish, state: &mut State| {
+            let wish = Wish {
+                time: chrono::Local::now(),
+                wish,
+            };
+            state.wishes.push(wish);
+            state.save_wishes();
+            message_log(MessageLogReason::Win)
+        })
         .map_side_effect(|_, state: &mut State| {
             state.clear_saved_game();
             state.save_config();
@@ -947,7 +1036,7 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
         Playing(witness) => match witness {
             Witness::Running(running) => game_instance_component(running).continue_(),
             Witness::GameOver(reason) => game_over(reason).map_val(|| MainMenu).continue_(),
-            Witness::Win(win_) => win(win_.win).map_val(|| MainMenu).continue_(),
+            Witness::Win => win().map_val(|| MainMenu).continue_(),
             Witness::Menu(menu_) => game_menu(menu_).map(Playing).continue_(),
         },
         Paused(running) => pause(running).map(|pause_output| match pause_output {
@@ -969,6 +1058,7 @@ pub fn game_loop_component(initial_state: GameLoopState) -> AppCF<()> {
         MessageLog(running) => message_log(MessageLogReason::Gameplay)
             .map(|()| GameLoopState::Playing(running.into_witness()))
             .continue_(),
+        Wishes => wishes().map(|()| GameLoopState::MainMenu).continue_(),
     })
     .bound_size(UCoord::new_u16(80, 30))
     .on_exit_with_state(|state| state.try_save_instance_cheat())

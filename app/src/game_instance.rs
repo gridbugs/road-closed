@@ -327,6 +327,14 @@ impl GameInstance {
                         .with_foreground(colours::FLOOR.to_rgba32(255)),
                 };
             }
+            Tile::Typewriter => {
+                return RenderCell {
+                    character: Some('$'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::TYPEWRITER.to_rgba32(255)),
+                };
+            }
         }
     }
 
@@ -660,7 +668,8 @@ impl GameInstance {
             .with_foreground(colours::BORDER.to_rgba32(255));
         let game_size = GAME_DRAW_AREA_SIZE;
         self.render_stats(ctx.add_y(game_size.height() as i32 + 1), fb);
-        match self.game.inner_ref().mode() {
+        let game = self.game.inner_ref();
+        match game.mode() {
             Mode::Driving => {
                 self.render_car(ctx.add_xy(12, 1), fb);
                 // line under game
@@ -681,17 +690,20 @@ impl GameInstance {
                 }
                 {
                     let ctx = ctx.add_xy(10, 22);
-                    Text::new(vec![
-                        StyledString {
-                            string: "(d) continue driving\n".to_string(),
-                            style: Style::plain_text(),
-                        },
-                        StyledString {
+                    let mut parts = vec![];
+                    if !game.at_start() {
+                        parts.push(StyledString {
                             string: "(s) stop driving\n".to_string(),
                             style: Style::plain_text(),
-                        },
-                    ])
-                    .render(&(), ctx, fb);
+                        });
+                    }
+                    if !game.at_end() {
+                        parts.push(StyledString {
+                            string: "(d) continue driving\n".to_string(),
+                            style: Style::plain_text(),
+                        });
+                    }
+                    Text::new(parts).render(&(), ctx, fb);
                 }
             }
             Mode::Walking => {
@@ -1088,11 +1100,27 @@ fn describe_tile(tile: Tile) -> Description {
             name: Text::new(vec![StyledString::plain_text("the floor".to_string())]),
             description: None,
         },
+        Tile::Typewriter => Description {
+            name: Text::new(vec![StyledString::plain_text(
+                "a typewriter. The wish granter?".to_string(),
+            )]),
+            description: None,
+        },
     }
 }
 
 fn terrain_type_text(terrain_type: TerrainType) -> Text {
     match terrain_type {
+        TerrainType::Start => {
+            Text::new(vec![
+                StyledString::plain_text("You slip past the cordon in the early hours of the morning. Somewhere deep within the zone there is rumoured to be a room that will grant any wish. You just need to make it there...".to_string()),
+            ])
+        }
+        TerrainType::End => {
+            Text::new(vec![
+                StyledString::plain_text("You arrive at the end of the road. The wish granter must be just up ahead...".to_string()),
+            ])
+        }
         TerrainType::PinePlantation => {
             Text::new(vec![
                 StyledString::plain_text("You are driving along an abandoned fire trail through a pine plantation, overgrown with weeds. The trees, once organized into well-kempt rows, now stand at odd angles as they are reclaimed by nature.".to_string())
@@ -1133,6 +1161,8 @@ pub fn message_to_text(message: Message) -> Text {
         )]),
         Message::ActionError(e) => Text::new(vec![StyledString::plain_text(match e {
             ActionError::InvalidMove => "You can't walk there.".to_string(),
+            ActionError::CantDrive => "There's no more road.".to_string(),
+            ActionError::CantStop => "You can't stop here.".to_string(),
             ActionError::MoveOutOfBounds => {
                 "You don't want to walk too far from your car.".to_string()
             }
@@ -1417,6 +1447,9 @@ pub fn message_to_text(message: Message) -> Text {
             string: "You must be next to the car to refuel it!".to_string(),
             style: Style::plain_text().with_foreground(colours::ERROR.to_rgba32(255)),
         }]),
+        Message::MakeWish => Text::new(vec![StyledString::plain_text(
+            "You make a wish.".to_string(),
+        )]),
     }
 }
 

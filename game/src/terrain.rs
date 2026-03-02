@@ -104,4 +104,58 @@ impl Terrain {
             world,
         }
     }
+
+    pub fn generate_end<R: Rng>(rng: &mut R) -> Self {
+        use procgen::end::{Map1, Tile as MapTile};
+        let map1 = Map1::generate(rng);
+        let mut player_coord = None;
+        let mut world = World::new(map1.grid.size());
+        for (coord, &cell) in map1.grid.enumerate() {
+            use MapTile::*;
+            match cell {
+                Player => {
+                    player_coord = Some(coord);
+                    world.spawn_road(coord);
+                }
+                Car(ch) => {
+                    world.spawn_car_part(coord, ch);
+                }
+                Ground => {
+                    world.spawn_ground(coord);
+                }
+                Road => {
+                    world.spawn_road(coord);
+                }
+                Tree => {
+                    world.spawn_tree(coord);
+                }
+                DeadTree => {
+                    world.spawn_dead_tree(coord);
+                }
+                Wall => {
+                    world.spawn_cabin_wall(coord);
+                }
+                Floor => {
+                    world.spawn_floor(coord);
+                }
+                Door => {
+                    world.spawn_door(coord);
+                }
+                Window => {
+                    world.spawn_window(coord);
+                }
+                Grass => {
+                    world.spawn_grass(coord);
+                }
+                Typewriter => {
+                    world.spawn_typewriter(coord);
+                }
+            }
+        }
+        let player_spawn = player_coord.unwrap();
+        Self {
+            player_spawn,
+            world,
+        }
+    }
 }

@@ -34,6 +34,7 @@ declare_entity_module! {
         zombie: (),
         night_stalker: (),
         slow: u64,
+        typewriter: (),
     }
 }
 pub use components::{Components, EntityData, EntityUpdate};
@@ -61,6 +62,7 @@ pub enum Tile {
     Window,
     Floor,
     NightStalker,
+    Typewriter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

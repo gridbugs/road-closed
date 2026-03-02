@@ -7,6 +7,7 @@ const DEFAULT_SAVE_FILE: &str = "save";
 const DEFAULT_NEXT_TO_EXE_STORAGE_DIR: &str = "save";
 const DEFAULT_CONFIG_FILE: &str = "config.json";
 const DEFAULT_CONTROLS_FILE: &str = "controls.json";
+const DEFAULT_WISHES_FILE: &str = "wishes.json";
 
 pub struct NativeCommon {
     pub storage: AppStorage,
@@ -25,6 +26,8 @@ impl NativeCommon {
                     .with_default(DEFAULT_CONFIG_FILE.to_string());
                 controls_file = opt_opt("PATH", "controls-file").desc("controls file")
                     .with_default(DEFAULT_CONTROLS_FILE.to_string());
+                wishes_file = opt_opt("PATH", "wishes-file").desc("wishes file")
+                    .with_default(DEFAULT_WISHES_FILE.to_string());
                 storage_dir = opt_opt("PATH", 'd').name("storage-dir")
                     .desc("directory that will contain state")
                     .with_default(DEFAULT_NEXT_TO_EXE_STORAGE_DIR.to_string());
@@ -62,6 +65,7 @@ impl NativeCommon {
                     save_game_key: save_file,
                     config_key: config_file,
                     controls_key: controls_file,
+                    wishes_key: wishes_file,
                 };
                 Self {
                     initial_rng_seed,

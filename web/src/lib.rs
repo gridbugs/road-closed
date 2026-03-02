@@ -1,4 +1,4 @@
-use app::{app, AppArgs, AppStorage, InitialRngSeed};
+use app::{AppArgs, AppStorage, InitialRngSeed, app};
 use chargrid_web::{Context, LoopMethod, UCoord};
 use general_storage_static::StaticStorage;
 use general_storage_web::LocalStorage;
@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 const SAVE_KEY: &str = "save";
 const CONFIG_KEY: &str = "config";
 const CONTROLS_KEY: &str = "controls";
+const WISHES_KEY: &str = "controls";
 
 #[wasm_bindgen(start)]
 pub fn run() -> Result<(), JsValue> {
@@ -22,6 +23,7 @@ pub fn run() -> Result<(), JsValue> {
             save_game_key: SAVE_KEY.to_string(),
             config_key: CONFIG_KEY.to_string(),
             controls_key: CONTROLS_KEY.to_string(),
+            wishes_key: WISHES_KEY.to_string(),
         },
         initial_rng_seed: InitialRngSeed::Random,
         omniscient: false,

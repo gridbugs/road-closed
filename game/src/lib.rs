@@ -200,6 +200,7 @@ pub enum Message {
     DamageFromHunger,
     ApplyItem(Item),
     MustBeNextToCarToRefuel,
+    MakeWish,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -230,16 +231,10 @@ pub enum GameOverReason {
     YouDied,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Win {
-    Good,
-    Bad,
-}
-
 #[derive(Debug)]
 pub enum GameControlFlow {
     GameOver(GameOverReason),
-    Win(Win),
+    Win,
     Menu(Menu),
 }
 
@@ -261,7 +256,9 @@ pub enum Input {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum TerrainType {
+    Start,
     PinePlantation,
+    End,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -336,6 +333,8 @@ pub enum ActionError {
     InventoryIsFull,
     CarIsOutOfFuel,
     TooTiredToDrive,
+    CantDrive,
+    CantStop,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -360,13 +359,15 @@ pub struct Game {
     passed_out_for: u32,
     walking_food_countdown: Countdown,
     driving_food_countdown: Countdown,
+    distance_travelled: u32,
+    distance_remaining: u32,
 }
 
 impl Game {
     pub fn new<R: Rng>(config: &Config, base_rng: &mut R) -> Self {
         let mut rng = Isaac64Rng::seed_from_u64(base_rng.random());
         let animation_rng = Isaac64Rng::seed_from_u64(base_rng.random());
-        let terrain = Terrain::generate_pine_plantation(&mut rng);
+        let terrain = Terrain::generate_end(&mut rng);
         let mut world = terrain.world;
         let visibility_grid = VisibilityGrid::new(world.spatial_table.grid_size());
         let player_spawn = terrain.player_spawn;
@@ -397,6 +398,8 @@ impl Game {
             passed_out_for: 0,
             walking_food_countdown: Countdown::new(60),
             driving_food_countdown: Countdown::new(2),
+            distance_travelled: 0,
+            distance_remaining: 2,
         };
         game.systems();
         game.update_visibility();
@@ -408,7 +411,11 @@ impl Game {
     }
 
     pub fn regenerate_terrain(&mut self) {
-        let terrain = Terrain::generate_pine_plantation(&mut self.rng);
+        let terrain = if self.at_end() {
+            Terrain::generate_end(&mut self.rng)
+        } else {
+            Terrain::generate_pine_plantation(&mut self.rng)
+        };
         let player_data = self.world.components.remove_entity_data(self.player_entity);
         self.world = terrain.world;
         let player_location = Location {
@@ -416,14 +423,29 @@ impl Game {
             layer: Some(Layer::Character),
         };
         self.player_entity = self.world.insert_entity_data(player_location, player_data);
+        self.visibility_grid = VisibilityGrid::new(self.world.spatial_table.grid_size());
     }
 
     pub fn terrain_type(&self) -> TerrainType {
-        self.terrain_type
+        if self.at_start() {
+            TerrainType::Start
+        } else if self.at_end() {
+            TerrainType::End
+        } else {
+            self.terrain_type
+        }
     }
 
     pub fn time_of_day(&self) -> TimeOfDay {
         self.time_of_day
+    }
+
+    pub fn at_start(&self) -> bool {
+        self.distance_travelled == 0
+    }
+
+    pub fn at_end(&self) -> bool {
+        self.distance_remaining == 0
     }
 
     pub fn mode(&self) -> Mode {
@@ -772,9 +794,10 @@ impl Game {
         if self.turn_count % 1 == 0 {
             self.time_of_day = self.time_of_day.add_minutes(1);
         }
-        if let Some(win) = self.win() {
+        if self.win() {
+            self.message_log.push(Message::MakeWish);
             self.update_visibility();
-            return Some(GameControlFlow::Win(win));
+            return Some(GameControlFlow::Win);
         }
         self.check_game_over()
     }
@@ -880,14 +903,20 @@ impl Game {
             self.update_visibility();
             self.message_log.push(Message::YouDie);
             self.external_events.push(ExternalEvent::Death);
-            Some(GameControlFlow::GameOver(GameOverReason::YouDied))
-        } else {
-            None
+            return Some(GameControlFlow::GameOver(GameOverReason::YouDied));
         }
+        None
     }
 
-    fn win(&self) -> Option<Win> {
-        None
+    fn win(&self) -> bool {
+        if let Some(layers) = self.world.spatial_table.layers_at(self.player_coord()) {
+            if let Some(feature) = layers.feature {
+                if self.world.components.typewriter.contains(feature) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn cleanup(&mut self) {
@@ -957,23 +986,31 @@ impl Game {
                 None
             }
             Input::ContinueDriving => {
+                if self.at_end() {
+                    return Err(ActionError::CantDrive);
+                }
                 self.time_of_day = self.time_of_day.add_minutes(59);
-                self.regenerate_terrain();
                 let fuel = self
                     .world
                     .components
                     .car_fuel
                     .get_mut(self.player_entity)
                     .unwrap();
+                self.distance_travelled += 1;
+                self.distance_remaining = self.distance_remaining.saturating_sub(1);
                 fuel.decrease(1);
                 if fuel.is_empty() {
                     self.mode = Mode::Walking;
                     self.message_log.push(Message::OutOfFuel);
                     self.message_log.push(Message::GetOutOfCar);
                 }
+                self.regenerate_terrain();
                 None
             }
             Input::StopDriving => {
+                if self.at_start() {
+                    return Err(ActionError::CantStop);
+                }
                 self.mode = Mode::Walking;
                 self.message_log.push(Message::GetOutOfCar);
                 None

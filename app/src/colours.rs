@@ -34,3 +34,4 @@ pub const TREE: Rgb24 = Rgb24::hex(0x5db522);
 pub const DEAD_TREE: Rgb24 = Rgb24::hex(0x875811);
 pub const CABIN_WALL: Rgb24 = Rgb24::hex(0x96834b);
 pub const CAR: Rgb24 = Rgb24::hex(0xdbd8d6);
+pub const TYPEWRITER: Rgb24 = Rgb24::hex(0xe2c714);

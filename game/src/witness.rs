@@ -1,7 +1,6 @@
 use crate::{
     ActionError, Config, ExternalEvent, GameControlFlow, GameOverReason, Input, Menu as GameMenu,
 };
-use coord_2d::ICoord;
 use direction::CardinalDirection;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -43,7 +42,7 @@ pub struct Running(Private);
 #[derive(Debug)]
 pub struct Win {
     private: Private,
-    pub win: crate::Win,
+    pub win: bool,
 }
 
 #[derive(Debug)]
@@ -56,7 +55,7 @@ pub struct Menu {
 pub enum Witness {
     Running(Running),
     GameOver(GameOverReason),
-    Win(Win),
+    Win,
     Menu(Menu),
 }
 
@@ -166,13 +165,7 @@ impl Game {
             Ok(Some(GameControlFlow::Menu(menu))) => {
                 (Witness::Menu(Menu { private, menu }), Ok(()))
             }
-            Ok(Some(GameControlFlow::Win(win))) => (
-                Witness::Win(Win {
-                    private: Private,
-                    win,
-                }),
-                Ok(()),
-            ),
+            Ok(Some(GameControlFlow::Win)) => (Witness::Win, Ok(())),
         }
     }
 
@@ -184,7 +177,7 @@ impl Game {
         match control_flow {
             None => Witness::running(private),
             Some(GameControlFlow::GameOver(reason)) => Witness::GameOver(reason),
-            Some(GameControlFlow::Win(win)) => Witness::Win(Win { private, win }),
+            Some(GameControlFlow::Win) => Witness::Win,
             Some(GameControlFlow::Menu(menu)) => Witness::Menu(Menu { private, menu }),
         }
     }

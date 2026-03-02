@@ -247,4 +247,14 @@ impl World {
             },
         )
     }
+
+    pub fn spawn_typewriter(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::Typewriter,
+                typewriter: (),
+            },
+        )
+    }
 }

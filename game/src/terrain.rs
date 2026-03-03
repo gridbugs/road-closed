@@ -93,12 +93,13 @@ impl Terrain {
             }
         }
         let player_spawn = player_coord.unwrap();
-        world.spawn_item(player_spawn + ICoord::new(0, 2), Item::MedKit);
-        world.spawn_item(player_spawn + ICoord::new(0, 3), Item::Firewood);
-        world.spawn_item(player_spawn + ICoord::new(0, 4), Item::Fruit);
-        world.spawn_item(player_spawn + ICoord::new(0, 5), Item::Coffee);
-        world.spawn_item(player_spawn + ICoord::new(0, 6), Item::FuelCan);
-        world.spawn_item(player_spawn + ICoord::new(0, 7), Item::Food);
+        world.spawn_zombie(player_spawn + ICoord::new(0, 2));
+        //world.spawn_item(player_spawn + ICoord::new(0, 2), Item::MedKit);
+        //world.spawn_item(player_spawn + ICoord::new(0, 3), Item::Firewood);
+        //world.spawn_item(player_spawn + ICoord::new(0, 4), Item::Fruit);
+        //world.spawn_item(player_spawn + ICoord::new(0, 5), Item::Coffee);
+        //world.spawn_item(player_spawn + ICoord::new(0, 6), Item::FuelCan);
+        //world.spawn_item(player_spawn + ICoord::new(0, 7), Item::Food);
         Self {
             player_spawn,
             world,

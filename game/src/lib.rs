@@ -399,11 +399,15 @@ impl Game {
             walking_food_countdown: Countdown::new(60),
             driving_food_countdown: Countdown::new(2),
             distance_travelled: 0,
-            distance_remaining: 2,
+            distance_remaining: 2000,
         };
         game.systems();
         game.update_visibility();
         game
+    }
+
+    pub fn distance_remaining(&self) -> u32 {
+        self.distance_remaining
     }
 
     pub fn passed_out_for(&self) -> u32 {
@@ -997,7 +1001,9 @@ impl Game {
                     .get_mut(self.player_entity)
                     .unwrap();
                 self.distance_travelled += 1;
-                self.distance_remaining = self.distance_remaining.saturating_sub(1);
+                self.distance_remaining = self
+                    .distance_remaining
+                    .saturating_sub(self.rng.random_range(20..50));
                 fuel.decrease(1);
                 if fuel.is_empty() {
                     self.mode = Mode::Walking;

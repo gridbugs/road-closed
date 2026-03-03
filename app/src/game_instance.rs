@@ -621,6 +621,23 @@ impl GameInstance {
             },
         ])
         .render(&(), ctx.add_x(x), fb);
+        let x = x + 25;
+
+        Text::new(vec![
+            StyledString {
+                string: "To destination: ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: format!("{}", self.game.inner_ref().distance_remaining()),
+                style: Style::plain_text().with_bold(true),
+            },
+            StyledString {
+                string: "km".to_string(),
+                style: Style::plain_text(),
+            },
+        ])
+        .render(&(), ctx.add_x(x), fb);
 
         let ctx = ctx.add_y(2);
         let stats = self.game.inner_ref().player_stats();

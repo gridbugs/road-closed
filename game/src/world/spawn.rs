@@ -23,6 +23,7 @@ pub fn make_player() -> EntityData {
         car_fuel: Some(Meter::new(20, 20)),
         inventory: Some(Inventory::new(6)),
         car_inventory: Some(Inventory::new(12)),
+        armour: Some(Armour::Overalls),
         ..Default::default()
     }
 }
@@ -207,8 +208,8 @@ impl World {
                 character: (),
                 npc_type: NpcType::Zombie,
                 health: Meter::new_full(4),
-                resurrects_in: Meter::new_full(10),
-                bump_damage: 1..=3,
+                resurrects_in: Meter::new_full(5),
+                bump_damage: 1..=4,
                 zombie: (),
                 slow: 2,
             },

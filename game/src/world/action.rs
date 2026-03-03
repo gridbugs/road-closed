@@ -6,6 +6,7 @@ use crate::{
     },
 };
 use coord_2d::ICoord;
+use direction::CardinalDirection;
 use entity_table::Entity;
 use rand::{Rng, seq::IndexedRandom};
 
@@ -14,6 +15,7 @@ impl World {
         &mut self,
         character: Entity,
         hit_points_to_lose: u32,
+        weapon: Weapon,
         rng: &mut R,
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
@@ -37,6 +39,7 @@ impl World {
                     message_log.push(Message::NpcHit {
                         npc_type,
                         damage: hit_points_to_lose,
+                        weapon,
                     });
                 }
             }
@@ -66,7 +69,7 @@ impl World {
     pub fn damage_player<R: Rng>(
         &mut self,
         character: Entity,
-        hit_points_to_lose: u32,
+        mut hit_points_to_lose: u32,
         rng: &mut R,
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
@@ -77,6 +80,13 @@ impl World {
             return;
         }
         if let Some(&npc_type) = self.components.npc_type.get(character) {
+            if let Some(armour) = self.components.armour.get(player_entity) {
+                hit_points_to_lose = hit_points_to_lose.saturating_sub(armour.damage_reduction());
+                if hit_points_to_lose == 0 {
+                    message_log.push(Message::YourArmourBlocksTheAttack(npc_type));
+                    return;
+                }
+            }
             message_log.push(Message::PlayerHit {
                 attacker_npc_type: npc_type,
                 damage: hit_points_to_lose,
@@ -113,15 +123,41 @@ impl World {
         }
     }
 
+    pub fn player_weapon(&self) -> Weapon {
+        let player_entity = self.components.player.entities().next().unwrap();
+        self.components
+            .weapon
+            .get(player_entity)
+            .cloned()
+            .unwrap_or(Weapon::Fists)
+    }
+
     pub fn player_bump_combat<R: Rng>(
         &mut self,
         character: Entity,
+        direction: CardinalDirection,
         rng: &mut R,
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
     ) {
-        let mut damage = rng.random_range(1..=2);
-        self.damage_character(character, damage, rng, external_events, message_log);
+        let weapon = self.player_weapon();
+        let damage = rng.random_range(weapon.damage());
+        match weapon.effect() {
+            None => (),
+            Some(Effect::Knockback) => {
+                for _ in 0..2 {
+                    if let Some(coord) = self.spatial_table.coord_of(character) {
+                        let coord = coord + direction.coord();
+                        if let Some(layers) = self.spatial_table.layers_at(coord) {
+                            if layers.character.is_none() && layers.feature.is_none() {
+                                let _ = self.spatial_table.update_coord(character, coord);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.damage_character(character, damage, weapon, rng, external_events, message_log);
     }
 
     fn drop_item(&mut self, item_entity: Entity, coord: ICoord) {
@@ -184,36 +220,25 @@ impl World {
         }
     }
 
-    pub fn handle_night_stalkers<R: Rng>(
-        &mut self,
-        time: crate::TimeOfDay,
-        rng: &mut R,
-        message_log: &mut Vec<Message>,
-    ) {
-        if time.is_night() {
-            if time.minute() % 30 == 0 {
-                let player_entity = self.components.player.entities().next().unwrap();
-                let player_coord = self.spatial_table.coord_of(player_entity).unwrap();
-                let spawn_candidates = self
-                    .spatial_table
-                    .grid_size()
-                    .icoord_iter_row_major()
-                    .filter(|coord| {
-                        let layers = self.spatial_table.layers_at(*coord).unwrap();
-                        if layers.feature.is_some() || layers.character.is_some() {
-                            return false;
-                        }
-                        let distance2 = coord.distance2(player_coord);
-                        distance2 > 40 && distance2 < 50
-                    })
-                    .collect::<Vec<_>>();
-                if let Some(&coord) = spawn_candidates.choose(rng) {
-                    self.spawn_night_stalker(coord);
-                    message_log.push(Message::NightStalkerSpawn);
+    pub fn handle_night_stalkers<R: Rng>(&mut self, rng: &mut R, message_log: &mut Vec<Message>) {
+        let player_entity = self.components.player.entities().next().unwrap();
+        let player_coord = self.spatial_table.coord_of(player_entity).unwrap();
+        let spawn_candidates = self
+            .spatial_table
+            .grid_size()
+            .icoord_iter_row_major()
+            .filter(|coord| {
+                let layers = self.spatial_table.layers_at(*coord).unwrap();
+                if layers.feature.is_some() || layers.character.is_some() {
+                    return false;
                 }
-            }
-        } else {
-            self.despawn_night_stalkers(message_log);
+                let distance2 = coord.distance2(player_coord);
+                distance2 > 40 && distance2 < 50
+            })
+            .collect::<Vec<_>>();
+        if let Some(&coord) = spawn_candidates.choose(rng) {
+            self.spawn_night_stalker(coord);
+            message_log.push(Message::NightStalkerSpawn);
         }
     }
 }

@@ -4,8 +4,8 @@ use chargrid::{
     text::{self, StyledString, Text},
 };
 use game::{
-    ActionError, CellVisibility, Config, Item, Layer, LayerTable, Message, Meter, Mode, NpcType,
-    TerrainType, Tile, VisibleEntity,
+    ActionError, Armour, CellVisibility, Config, Effect, Item, Layer, LayerTable, Message, Meter,
+    Mode, NpcType, TerrainType, Tile, VisibleEntity, Weapon,
     witness::{self, Game, RunningGame},
 };
 use rand::Rng;
@@ -594,17 +594,43 @@ impl GameInstance {
         ret
     }
 
-    fn render_hint(&self, ctx: Ctx, fb: &mut FrameBuffer) {
+    fn render_equipment(&self, ctx: Ctx, fb: &mut FrameBuffer) {
         use text::*;
-        let text = Text::new(vec![
-            StyledString::plain_text("You are the ".to_string()),
+        let game = self.game.inner_ref();
+        let weapon = game.player_weapon();
+        let weapon_str = match weapon {
+            Weapon::Fists => "Fists",
+        };
+        let min_damage = weapon.damage().start().to_string();
+        let max_damage = weapon.damage().end().to_string();
+        let effect_str = match weapon.effect() {
+            Some(Effect::Knockback) => ", Pushback",
+            None => "",
+        };
+        let armour = game.player_armour();
+        let armour_str = match armour {
+            Armour::Overalls => "Overalls",
+        };
+        let dr = armour.damage_reduction();
+        Text::new(vec![
+            StyledString::plain_text("Weapon: ".to_string()),
             StyledString {
-                string: "@".to_string(),
+                string: format!(
+                    "{} ({}-{}{})",
+                    weapon_str, min_damage, max_damage, effect_str
+                ),
                 style: Style::plain_text().with_bold(true),
             },
-            StyledString::plain_text(".\nMove with ←↑→↓.\nPress ? for more info.".to_string()),
-        ]);
-        text.wrap_word().render(&(), ctx, fb);
+        ])
+        .render(&(), ctx.add_y(1), fb);
+        Text::new(vec![
+            StyledString::plain_text("Armour: ".to_string()),
+            StyledString {
+                string: format!("{} (DR: {})", armour_str, dr),
+                style: Style::plain_text().with_bold(true),
+            },
+        ])
+        .render(&(), ctx.add_y(3), fb);
     }
 
     fn render_stats(&self, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -621,11 +647,22 @@ impl GameInstance {
             },
         ])
         .render(&(), ctx.add_x(x), fb);
-        let x = x + 25;
-
+        let x = 33;
         Text::new(vec![
             StyledString {
-                string: "To destination: ".to_string(),
+                string: "Day ".to_string(),
+                style: Style::plain_text().with_bold(true),
+            },
+            StyledString {
+                string: format!("{}", self.game.inner_ref().day_count()),
+                style: Style::plain_text().with_bold(true),
+            },
+        ])
+        .render(&(), ctx.add_x(x), fb);
+        let x = 48;
+        Text::new(vec![
+            StyledString {
+                string: "Distance to destination: ".to_string(),
                 style: Style::plain_text(),
             },
             StyledString {
@@ -745,7 +782,7 @@ impl GameInstance {
                         box_render_cell.with_character('╩'),
                     );
                 }
-                let messages_height = 9;
+                let messages_height = 8;
                 let mut ui_y = 0;
                 let ui_x = game_size.width() as i32 + 1;
                 let ui_width = fb.size().width() - ui_x as u32;
@@ -817,11 +854,11 @@ impl GameInstance {
                 }
                 Text::new(vec![
                     StyledString {
-                        string: "╠══════════╡ ".to_string(),
+                        string: "╠═══════╡ ".to_string(),
                         style: border_style,
                     },
                     StyledString {
-                        string: "Hint".to_string(),
+                        string: "Equipment".to_string(),
                         style: border_text_style,
                     },
                     StyledString {
@@ -834,7 +871,7 @@ impl GameInstance {
                     ctx.add_xy(game_size.width() as i32, ui_y).add_depth(1),
                     fb,
                 );
-                self.render_hint(ui_ctx.add_y(ui_y + 1), fb);
+                self.render_equipment(ui_ctx.add_y(ui_y + 1), fb);
             }
         }
     }
@@ -1217,7 +1254,11 @@ pub fn message_to_text(message: Message) -> Text {
             }
             ActionError::TooTiredToDrive => "You are too tired to drive!".to_string(),
         })]),
-        Message::NpcHit { npc_type, damage } => Text::new(vec![
+        Message::NpcHit {
+            npc_type,
+            damage,
+            weapon,
+        } => Text::new(vec![
             StyledString::plain_text("You hit the ".to_string()),
             npc_type_to_styled_string(npc_type),
             StyledString::plain_text(" for ".to_string()),
@@ -1225,7 +1266,12 @@ pub fn message_to_text(message: Message) -> Text {
                 string: format!("{damage}"),
                 style: Style::plain_text().with_bold(true),
             },
-            StyledString::plain_text(" damage.".to_string()),
+            StyledString::plain_text(" damage with your ".to_string()),
+            StyledString {
+                string: weapon.to_string(),
+                style: Style::plain_text().with_bold(true),
+            },
+            StyledString::plain_text(".".to_string()),
         ]),
         Message::NpcDies(npc_type) => Text::new(vec![
             StyledString::plain_text("The ".to_string()),
@@ -1467,6 +1513,11 @@ pub fn message_to_text(message: Message) -> Text {
         Message::MakeWish => Text::new(vec![StyledString::plain_text(
             "You make a wish.".to_string(),
         )]),
+        Message::YourArmourBlocksTheAttack(npc_type) => Text::new(vec![
+            StyledString::plain_text("Your armour blocks the ".to_string()),
+            npc_type_to_styled_string(npc_type),
+            StyledString::plain_text("'s attack.".to_string()),
+        ]),
     }
 }
 

@@ -116,7 +116,7 @@ impl Map1 {
 
         let wild_tile = |rng: &mut R| {
             let roll = rng.random::<f32>();
-            if roll < 0.01 {
+            if roll < 0.02 {
                 Tile::FireWood
             } else if roll < 0.1 {
                 Tile::DeadTree

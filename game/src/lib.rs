@@ -28,7 +28,7 @@ use world::{
     spatial::Layers,
 };
 pub use world::{
-    data::{Item, Layer, Location, Meter, NpcType, Tile},
+    data::{Armour, Effect, Item, Layer, Location, Meter, NpcType, Tile, Weapon},
     spatial::LayerTable,
 };
 
@@ -176,6 +176,7 @@ pub enum Message {
     NpcHit {
         npc_type: NpcType,
         damage: u32,
+        weapon: Weapon,
     },
     KickZombieCorpse,
     DestroyZombieCorpse,
@@ -201,6 +202,7 @@ pub enum Message {
     ApplyItem(Item),
     MustBeNextToCarToRefuel,
     MakeWish,
+    YourArmourBlocksTheAttack(NpcType),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -350,6 +352,7 @@ pub struct Game {
     omniscient: bool,
     external_events: Vec<ExternalEvent>,
     turn_count: u64,
+    day_count: u32,
     game_over: bool,
     mode: Mode,
     time_of_day: TimeOfDay,
@@ -361,6 +364,7 @@ pub struct Game {
     driving_food_countdown: Countdown,
     distance_travelled: u32,
     distance_remaining: u32,
+    nightstalker_countdown: Countdown,
 }
 
 impl Game {
@@ -389,6 +393,7 @@ impl Game {
             omniscient: config.omniscient.is_some(),
             external_events: Default::default(),
             turn_count: 0,
+            day_count: 1,
             game_over: false,
             mode: Mode::Driving,
             time_of_day: TimeOfDay { hour: 6, minute: 0 },
@@ -400,6 +405,7 @@ impl Game {
             driving_food_countdown: Countdown::new(2),
             distance_travelled: 0,
             distance_remaining: 2000,
+            nightstalker_countdown: Countdown::new(20),
         };
         game.systems();
         game.update_visibility();
@@ -428,6 +434,7 @@ impl Game {
         };
         self.player_entity = self.world.insert_entity_data(player_location, player_data);
         self.visibility_grid = VisibilityGrid::new(self.world.spatial_table.grid_size());
+        self.ai_context = AiContext::new(self.world.size());
     }
 
     pub fn terrain_type(&self) -> TerrainType {
@@ -641,6 +648,7 @@ impl Game {
                 if self.world.components.character.contains(character_entity) {
                     self.world.player_bump_combat(
                         character_entity,
+                        direction,
                         &mut self.rng,
                         &mut self.external_events,
                         &mut self.message_log,
@@ -797,6 +805,9 @@ impl Game {
         self.decrease_player_stats();
         if self.turn_count % 1 == 0 {
             self.time_of_day = self.time_of_day.add_minutes(1);
+            if self.time_of_day.minute == 0 && self.time_of_day.hour == 0 {
+                self.day_count += 1;
+            }
         }
         if self.win() {
             self.message_log.push(Message::MakeWish);
@@ -808,8 +819,15 @@ impl Game {
 
     fn systems(&mut self) {
         self.world.handle_resurrection();
-        self.world
-            .handle_night_stalkers(self.time_of_day, &mut self.rng, &mut self.message_log);
+        if self.time_of_day().is_night() {
+            if self.nightstalker_countdown.tick() {
+                self.world
+                    .handle_night_stalkers(&mut self.rng, &mut self.message_log);
+            }
+        } else {
+            self.nightstalker_countdown.value = 1;
+            self.world.despawn_night_stalkers(&mut self.message_log);
+        }
     }
 
     fn decrease_player_stats(&mut self) {
@@ -872,6 +890,12 @@ impl Game {
                             .decrease(1);
                     } else {
                         food.decrease(1);
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(1);
                     }
                 }
             }
@@ -887,6 +911,12 @@ impl Game {
                             .decrease(1);
                     } else {
                         food.decrease(1);
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(1);
                     }
                 }
             }
@@ -994,6 +1024,10 @@ impl Game {
                     return Err(ActionError::CantDrive);
                 }
                 self.time_of_day = self.time_of_day.add_minutes(59);
+
+                if self.time_of_day.hour == 0 {
+                    self.day_count += 1;
+                }
                 let fuel = self
                     .world
                     .components
@@ -1031,6 +1065,10 @@ impl Game {
         }
         self.update_visibility();
         Ok(self.check_game_over())
+    }
+
+    pub fn day_count(&self) -> u32 {
+        self.day_count
     }
 
     fn player_inventory(&self) -> &Inventory {
@@ -1367,5 +1405,23 @@ impl Game {
             .unwrap()
             .get(i)
             .map(|entity_data| entity_data.item.unwrap())
+    }
+
+    pub fn player_weapon(&self) -> Weapon {
+        self.world
+            .components
+            .weapon
+            .get(self.player_entity)
+            .cloned()
+            .unwrap_or(Weapon::Fists)
+    }
+
+    pub fn player_armour(&self) -> Armour {
+        self.world
+            .components
+            .armour
+            .get(self.player_entity)
+            .cloned()
+            .unwrap()
     }
 }

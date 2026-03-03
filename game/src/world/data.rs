@@ -35,6 +35,8 @@ declare_entity_module! {
         night_stalker: (),
         slow: u64,
         typewriter: (),
+        weapon: Weapon,
+        armour: Armour,
     }
 }
 pub use components::{Components, EntityData, EntityUpdate};
@@ -235,4 +237,47 @@ impl NpcMovement {
 pub struct Npc {
     pub disposition: Disposition,
     pub movement: NpcMovement,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Weapon {
+    Fists,
+}
+
+impl Weapon {
+    pub fn damage(&self) -> RangeInclusive<u32> {
+        match self {
+            Self::Fists => 1..=2,
+        }
+    }
+
+    pub fn effect(&self) -> Option<Effect> {
+        match self {
+            Self::Fists => Some(Effect::Knockback),
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Fists => "fists".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum Effect {
+    Knockback,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Armour {
+    Overalls,
+}
+
+impl Armour {
+    pub fn damage_reduction(&self) -> u32 {
+        match self {
+            Armour::Overalls => 1,
+        }
+    }
 }

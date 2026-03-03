@@ -1,8 +1,8 @@
-# Electric Organ
+# Road Closed
 
 ## Package Contents
 
-- ElectricOrgan.app: Graphical version of the game
+- RoadClosed.app: Graphical version of the game
 
 ## Notes
 

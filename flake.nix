@@ -1,5 +1,5 @@
 {
-  description = "Electric Organ";
+  description = "Road Closed";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -11,8 +11,17 @@
     };
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, flake-compat, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      flake-compat,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
@@ -30,7 +39,10 @@
             openssl
             cmake
             (rust-bin.stable.latest.default.override {
-              extensions = [ "rust-src" "rust-analysis" ];
+              extensions = [
+                "rust-src"
+                "rust-analysis"
+              ];
               targets = [ "wasm32-unknown-unknown" ];
             })
             rust-analyzer

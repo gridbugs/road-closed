@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 BRANCH=$1
-NAME=electric-organ-web
+NAME=road-closed-web
 
 pushd web
 

@@ -1,9 +1,9 @@
-# Electric Organ
+# Road Closed
 
 ## Package Contents
 
-- electric-organ-graphical: Graphical version of the game, rendering with metal on macos and vulkan on linux
-- electric-organ-terminal: Terminal version of the game, rendering as text in an ansi terminal
+- road-closed-graphical: Graphical version of the game, rendering with metal on macos and vulkan on linux
+- road-closed-terminal: Terminal version of the game, rendering as text in an ansi terminal
 
 ## HIDPI
 
@@ -12,7 +12,7 @@ The `WINIT_X11_SCALE_FACTOR` environment variable overrides the HIDPI scaling fa
 
 For example:
 ```
-WINIT_X11_SCALE_FACTOR=1 ./electric-organ-graphical
+WINIT_X11_SCALE_FACTOR=1 ./road-closed-graphical
 ```
 
 ## MacOS

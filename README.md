@@ -1,7 +1,7 @@
-# Electric Organ
+# Road Closed
 
-[![dependency status](https://deps.rs/repo/github/gridbugs/electric-organ/status.svg)](https://deps.rs/repo/github/gridbugs/electric-organ)
-[![test status](https://github.com/gridbugs/electric-organ/actions/workflows/test.yml/badge.svg)](https://github.com/gridbugs/electric-organ/actions/workflows/test.yml)
+[![dependency status](https://deps.rs/repo/github/gridbugs/road-closed/status.svg)](https://deps.rs/repo/github/gridbugs/road-closed)
+[![test status](https://github.com/gridbugs/road-closed/actions/workflows/test.yml/badge.svg)](https://github.com/gridbugs/road-closed/actions/workflows/test.yml)
 
 ## HIDPI
 

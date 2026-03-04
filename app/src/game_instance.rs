@@ -448,7 +448,9 @@ impl GameInstance {
                     });
                 }
                 CellVisibility::Current { data, light_colour } => {
-                    let light_colour = light_colour.unwrap_or(Rgb24::new_grey(0));
+                    let light_colour = light_colour
+                        .unwrap_or(Rgb24::new_grey(0))
+                        .saturating_scalar_mul_div(3, 2);
                     let tint = LightBlend { light_colour };
                     data.tiles.for_each_enumerate(|visible_entity, layer| {
                         if let Some(tile) = visible_entity.tile {

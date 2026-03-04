@@ -19,6 +19,7 @@ pub const FUEL_CAN: Rgb24 = FUEL.saturating_scalar_mul_div(2, 1);
 pub const ERROR: Rgb24 = Rgb24::new(200, 0, 0);
 
 pub const ZOMBIE: Rgb24 = Rgb24::new(255, 51, 0);
+pub const SLIME: Rgb24 = Rgb24::hex(0x0bedc3);
 pub const NIGHT_STALKER: Rgb24 = Rgb24::hex(0x7744ed);
 pub const HEALTH: Rgb24 = Rgb24::hex(0x93150e);
 pub const ENERGY: Rgb24 = Rgb24::hex(0x2c720e);
@@ -35,3 +36,4 @@ pub const DEAD_TREE: Rgb24 = Rgb24::hex(0x875811);
 pub const CABIN_WALL: Rgb24 = Rgb24::hex(0x96834b);
 pub const CAR: Rgb24 = Rgb24::hex(0xdbd8d6);
 pub const TYPEWRITER: Rgb24 = Rgb24::hex(0xe2c714);
+pub const WEAPON: Rgb24 = Rgb24::hex(0xffffff);

@@ -224,7 +224,7 @@ impl GameInstance {
             }
             Tile::Item(Item::Food) => {
                 return RenderCell {
-                    character: Some('['),
+                    character: Some(']'),
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::FOOD_ITEM.to_rgba32(255)),
@@ -232,7 +232,7 @@ impl GameInstance {
             }
             Tile::Item(Item::Coffee) => {
                 return RenderCell {
-                    character: Some('{'),
+                    character: Some('}'),
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::COFFEE.to_rgba32(255)),
@@ -262,6 +262,15 @@ impl GameInstance {
                         .with_foreground(colours::ZOMBIE.to_rgba32(255)),
                 };
             }
+            Tile::Slime => {
+                return RenderCell {
+                    character: Some('s'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::SLIME.to_rgba32(255)),
+                };
+            }
+
             Tile::NightStalker => {
                 return RenderCell {
                     character: Some('n'),
@@ -335,6 +344,58 @@ impl GameInstance {
                         .with_foreground(colours::TYPEWRITER.to_rgba32(255)),
                 };
             }
+            Tile::Item(Item::Weapon(weapon)) => match weapon {
+                Weapon::BareHands => {
+                    return RenderCell {
+                        character: Some('?'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+                Weapon::Knife => {
+                    return RenderCell {
+                        character: Some('1'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+                Weapon::Axe => {
+                    return RenderCell {
+                        character: Some('2'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+            },
+            Tile::Item(Item::Armour(armour)) => match armour {
+                Armour::Overalls => {
+                    return RenderCell {
+                        character: Some('♦'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+                Armour::LightArmour => {
+                    return RenderCell {
+                        character: Some('♠'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+                Armour::HeavyArmour => {
+                    return RenderCell {
+                        character: Some('♣'),
+                        style: Style::new()
+                            .with_bold(true)
+                            .with_foreground(colours::WEAPON.to_rgba32(255)),
+                    };
+                }
+            },
         }
     }
 
@@ -599,38 +660,58 @@ impl GameInstance {
         let game = self.game.inner_ref();
         let weapon = game.player_weapon();
         let weapon_str = match weapon {
-            Weapon::Fists => "Fists",
+            Weapon::BareHands => "Bare Hands",
+            Weapon::Knife => "Knife",
+            Weapon::Axe => "Axe",
         };
         let min_damage = weapon.damage().start().to_string();
         let max_damage = weapon.damage().end().to_string();
         let effect_str = match weapon.effect() {
-            Some(Effect::Knockback) => ", Pushback",
+            Some(Effect::Knockback) => ", Knockback",
+            Some(Effect::Tiring) => ", Tiring",
             None => "",
         };
-        let armour = game.player_armour();
-        let armour_str = match armour {
-            Armour::Overalls => "Overalls",
-        };
-        let dr = armour.damage_reduction();
         Text::new(vec![
-            StyledString::plain_text("Weapon: ".to_string()),
+            StyledString::plain_text("Weapon: \n".to_string()),
             StyledString {
                 string: format!(
-                    "{} ({}-{}{})",
+                    "{}\n(Damage: {}-{}{})",
                     weapon_str, min_damage, max_damage, effect_str
                 ),
                 style: Style::plain_text().with_bold(true),
             },
         ])
-        .render(&(), ctx.add_y(1), fb);
-        Text::new(vec![
-            StyledString::plain_text("Armour: ".to_string()),
-            StyledString {
-                string: format!("{} (DR: {})", armour_str, dr),
-                style: Style::plain_text().with_bold(true),
-            },
-        ])
-        .render(&(), ctx.add_y(3), fb);
+        .wrap_word()
+        .render(&(), ctx.add_y(0), fb);
+        if let Some(armour) = game.player_armour() {
+            let armour_str = match armour {
+                Armour::Overalls => "Overalls",
+                Armour::LightArmour => "Light Armour",
+                Armour::HeavyArmour => "Heavy Armour",
+            };
+            let hunger = match armour.hunger() {
+                0 => "".to_string(),
+                n => format!(", Hunger: {}", n),
+            };
+            let dr = armour.damage_reduction();
+            Text::new(vec![
+                StyledString::plain_text("Armour: \n".to_string()),
+                StyledString {
+                    string: format!("{}\n(Resistance: {}{})", armour_str, dr, hunger),
+                    style: Style::plain_text().with_bold(true),
+                },
+            ])
+        } else {
+            Text::new(vec![
+                StyledString::plain_text("Armour: \n".to_string()),
+                StyledString {
+                    string: "(none)".to_string(),
+                    style: Style::plain_text().with_bold(true),
+                },
+            ])
+        }
+        .wrap_word()
+        .render(&(), ctx.add_y(4), fb);
     }
 
     fn render_stats(&self, ctx: Ctx, fb: &mut FrameBuffer) {
@@ -782,7 +863,7 @@ impl GameInstance {
                         box_render_cell.with_character('╩'),
                     );
                 }
-                let messages_height = 8;
+                let messages_height = 6;
                 let mut ui_y = 0;
                 let ui_x = game_size.width() as i32 + 1;
                 let ui_width = fb.size().width() - ui_x as u32;
@@ -1058,11 +1139,9 @@ fn describe_tile(tile: Tile) -> Description {
                 StyledString::plain_text("a ".to_string()),
                 StyledString {
                     string: "fuel can".to_string(),
-                    style: Style::new().with_bold(true).with_foreground(
-                        colours::FUEL_CAN
-                            .to_rgba32(255)
-                            .saturating_scalar_mul_div(3, 2),
-                    ),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::FUEL_CAN.to_rgba32(255)),
                 },
             ]),
             description: Some(Text::new(vec![
@@ -1104,6 +1183,21 @@ fn describe_tile(tile: Tile) -> Description {
                 "It will reanimate soon.".to_string(),
             )])),
         },
+        Tile::Slime => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "slime".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::SLIME.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![StyledString::plain_text(
+                "Splits when damaged.".to_string(),
+            )])),
+        },
+
         Tile::NightStalker => Description {
             name: Text::new(vec![
                 StyledString::plain_text("a ".to_string()),
@@ -1160,6 +1254,59 @@ fn describe_tile(tile: Tile) -> Description {
             )]),
             description: None,
         },
+        Tile::Item(Item::Weapon(weapon)) => {
+            let article = match weapon {
+                Weapon::BareHands => "some ",
+                Weapon::Knife => "a ",
+                Weapon::Axe => "an ",
+            };
+            let min_damage = weapon.damage().start().to_string();
+            let max_damage = weapon.damage().end().to_string();
+            let effect = match weapon {
+                Weapon::BareHands => "",
+                Weapon::Knife => "",
+                Weapon::Axe => "It costs energy to use.\n\n",
+            };
+            Description {
+                name: Text::new(vec![
+                    StyledString::plain_text(article.to_string()),
+                    StyledString {
+                        string: weapon.to_string(),
+                        style: Style::new().with_bold(true),
+                    },
+                ]),
+                description: Some(Text::new(vec![
+                    StyledString::plain_text(format!(
+                        "It's damage is {}-{}.\n\n{}",
+                        min_damage, max_damage, effect
+                    )),
+                    StyledString::plain_text("Apply to equip.".to_string()),
+                ])),
+            }
+        }
+        Tile::Item(Item::Armour(armour)) => {
+            let hunger = match armour.hunger() {
+                0 => "".to_string(),
+                n => format!("It will require {} additional food consumption.\n\n", n),
+            };
+            Description {
+                name: Text::new(vec![
+                    StyledString::plain_text("some ".to_string()),
+                    StyledString {
+                        string: armour.to_string(),
+                        style: Style::new().with_bold(true),
+                    },
+                ]),
+                description: Some(Text::new(vec![
+                    StyledString::plain_text(format!(
+                        "It's damage resistance is {}.\n\n{}",
+                        armour.damage_reduction(),
+                        hunger
+                    )),
+                    StyledString::plain_text("Apply to equip.".to_string()),
+                ])),
+            }
+        }
     }
 }
 
@@ -1198,6 +1345,12 @@ fn npc_type_to_styled_string(npc_type: NpcType) -> text::StyledString {
                 .with_bold(true)
                 .with_foreground(colours::NIGHT_STALKER.to_rgba32(255)),
         },
+        NpcType::Slime => StyledString {
+            string: "slime".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::SLIME.to_rgba32(255)),
+        },
     }
 }
 
@@ -1214,6 +1367,7 @@ pub fn message_to_text(message: Message) -> Text {
             "You close the door.".to_string(),
         )]),
         Message::ActionError(e) => Text::new(vec![StyledString::plain_text(match e {
+            ActionError::NotEnoughEnergy => "Not enough energy.".to_string(),
             ActionError::InvalidMove => "You can't walk there.".to_string(),
             ActionError::CantDrive => "There's no more road.".to_string(),
             ActionError::CantStop => "You can't stop here.".to_string(),
@@ -1361,6 +1515,32 @@ pub fn message_to_text(message: Message) -> Text {
                 style: Style::plain_text(),
             },
         ]),
+        Message::SlimeSplits => Text::new(vec![
+            StyledString {
+                string: "The ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "slime".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::SLIME.to_rgba32(255)),
+            },
+            StyledString {
+                string: " splits into two smaller ".to_string(),
+                style: Style::plain_text(),
+            },
+            StyledString {
+                string: "slimes".to_string(),
+                style: Style::plain_text()
+                    .with_bold(true)
+                    .with_foreground(colours::SLIME.to_rgba32(255)),
+            },
+            StyledString {
+                string: ".".to_string(),
+                style: Style::plain_text(),
+            },
+        ]),
         Message::NightStalkerSpawn => Text::new(vec![StyledString {
             string: "You hear the nearby sound of claws scratching at the earth.".to_string(),
             style: Style::plain_text(),
@@ -1470,6 +1650,34 @@ pub fn message_to_text(message: Message) -> Text {
                     style: Style::plain_text(),
                 },
             ]),
+            Item::Weapon(weapon) => Text::new(vec![
+                StyledString {
+                    string: "You equip the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: weapon.to_string(),
+                    style: Style::plain_text().with_bold(true),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
+            Item::Armour(armour) => Text::new(vec![
+                StyledString {
+                    string: "You put on the ".to_string(),
+                    style: Style::plain_text(),
+                },
+                StyledString {
+                    string: armour.to_string(),
+                    style: Style::plain_text().with_bold(true),
+                },
+                StyledString {
+                    string: ".".to_string(),
+                    style: Style::plain_text(),
+                },
+            ]),
         },
         Message::TransferItemToCar(item) => Text::new(vec![
             StyledString::plain_text("You move the ".to_string()),
@@ -1518,6 +1726,12 @@ pub fn message_to_text(message: Message) -> Text {
             npc_type_to_styled_string(npc_type),
             StyledString::plain_text("'s attack.".to_string()),
         ]),
+        Message::ArmourMakesYouHungry => Text::new(vec![StyledString::plain_text(
+            "The weight of your armour makes you extra hungry.".to_string(),
+        )]),
+        Message::AttackingMakesYouTired => Text::new(vec![StyledString::plain_text(
+            "The effort of swinging your weapon tires you out.".to_string(),
+        )]),
     }
 }
 
@@ -1554,13 +1768,34 @@ fn item_styled_string_for_message(item: Item) -> text::StyledString {
                 .with_bold(true)
                 .with_foreground(colours::COFFEE.to_rgba32(255)),
         },
-
         Item::FuelCan => StyledString {
             string: "fuel".to_string(),
             style: Style::new()
                 .with_bold(true)
                 .with_foreground(colours::FUEL.to_rgba32(255).saturating_scalar_mul_div(3, 2)),
         },
+        Item::Weapon(weapon) => {
+            let weapon_str = match weapon {
+                Weapon::BareHands => "bare handns",
+                Weapon::Knife => "knife",
+                Weapon::Axe => "axe",
+            };
+            StyledString {
+                string: weapon_str.to_string(),
+                style: Style::new().with_bold(true),
+            }
+        }
+        Item::Armour(armour) => {
+            let armour_str = match armour {
+                Armour::Overalls => "overalls",
+                Armour::LightArmour => "light armour",
+                Armour::HeavyArmour => "heavy armour",
+            };
+            StyledString {
+                string: armour_str.to_string(),
+                style: Style::new().with_bold(true),
+            }
+        }
     }
 }
 
@@ -1572,5 +1807,17 @@ pub fn item_string_for_menu(item: Item) -> String {
         Item::Food => "Food".to_string(),
         Item::Coffee => "Coffee".to_string(),
         Item::FuelCan => "Fuel Can".to_string(),
+        Item::Weapon(weapon) => match weapon {
+            Weapon::BareHands => "bare handns",
+            Weapon::Knife => "knife",
+            Weapon::Axe => "axe",
+        }
+        .to_string(),
+        Item::Armour(armour) => match armour {
+            Armour::Overalls => "overalls",
+            Armour::LightArmour => "light armour",
+            Armour::HeavyArmour => "heavy armour",
+        }
+        .to_string(),
     }
 }

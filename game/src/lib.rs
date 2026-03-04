@@ -203,6 +203,9 @@ pub enum Message {
     MustBeNextToCarToRefuel,
     MakeWish,
     YourArmourBlocksTheAttack(NpcType),
+    ArmourMakesYouHungry,
+    AttackingMakesYouTired,
+    SlimeSplits,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -254,6 +257,8 @@ pub enum Input {
     Get,
     ContinueDriving,
     StopDriving,
+    UnequipWeapon,
+    RemoveArmour,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -337,6 +342,7 @@ pub enum ActionError {
     TooTiredToDrive,
     CantDrive,
     CantStop,
+    NotEnoughEnergy,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -652,7 +658,7 @@ impl Game {
                         &mut self.rng,
                         &mut self.external_events,
                         &mut self.message_log,
-                    );
+                    )?;
                 } else if self.world.components.zombie.contains(character_entity) {
                     self.message_log.push(Message::KickZombieCorpse);
                     if self.rng.random::<f32>() < 0.25 {
@@ -871,6 +877,11 @@ impl Game {
                 }
             }
         }
+        let num_food_ticks = if let Some(armour) = self.player_armour() {
+            armour.hunger()
+        } else {
+            0
+        } + 1;
         let food = self
             .world
             .components
@@ -880,22 +891,27 @@ impl Game {
         match self.mode {
             Mode::Walking => {
                 if self.walking_food_countdown.tick() {
-                    if food.is_empty() {
-                        self.message_log.push(Message::DamageFromHunger);
-                        self.world
-                            .components
-                            .health
-                            .get_mut(self.player_entity)
-                            .unwrap()
-                            .decrease(1);
-                    } else {
-                        food.decrease(1);
-                        self.world
-                            .components
-                            .health
-                            .get_mut(self.player_entity)
-                            .unwrap()
-                            .increase(1);
+                    for i in 0..num_food_ticks {
+                        if i > 0 {
+                            self.message_log.push(Message::ArmourMakesYouHungry);
+                        }
+                        if food.is_empty() {
+                            self.message_log.push(Message::DamageFromHunger);
+                            self.world
+                                .components
+                                .health
+                                .get_mut(self.player_entity)
+                                .unwrap()
+                                .decrease(1);
+                        } else {
+                            food.decrease(1);
+                            self.world
+                                .components
+                                .health
+                                .get_mut(self.player_entity)
+                                .unwrap()
+                                .increase(1);
+                        }
                     }
                 }
             }
@@ -1055,6 +1071,30 @@ impl Game {
                 self.message_log.push(Message::GetOutOfCar);
                 None
             }
+            Input::UnequipWeapon => {
+                if let Some(current_weapon) =
+                    self.world.components.weapon.remove(self.player_entity)
+                {
+                    if let Some(coord) = self.world.nearest_itemless_coord(self.player_coord()) {
+                        let item = Item::Weapon(current_weapon);
+                        self.message_log.push(Message::DropItem(item));
+                        self.world.spawn_item(coord, item);
+                    }
+                }
+                None
+            }
+            Input::RemoveArmour => {
+                if let Some(current_armour) =
+                    self.world.components.armour.remove(self.player_entity)
+                {
+                    if let Some(coord) = self.world.nearest_itemless_coord(self.player_coord()) {
+                        let item = Item::Armour(current_armour);
+                        self.message_log.push(Message::DropItem(item));
+                        self.world.spawn_item(coord, item);
+                    }
+                }
+                None
+            }
         };
         if game_control_flow.is_some() {
             return Ok(game_control_flow);
@@ -1063,6 +1103,7 @@ impl Game {
         if game_control_flow.is_some() {
             return Ok(game_control_flow);
         }
+        self.cleanup();
         self.update_visibility();
         Ok(self.check_game_over())
     }
@@ -1285,13 +1326,54 @@ impl Game {
                             return None;
                         }
                     }
+                    Item::Weapon(weapon) => {
+                        if let Some(current_weapon) = self
+                            .world
+                            .components
+                            .weapon
+                            .insert(self.player_entity, weapon)
+                        {
+                            if let Some(coord) =
+                                self.world.nearest_itemless_coord(self.player_coord())
+                            {
+                                let item = Item::Weapon(current_weapon);
+                                self.message_log.push(Message::DropItem(item));
+                                self.world.spawn_item(coord, item);
+                            }
+                        }
+                        self.message_log.push(Message::ApplyItem(item));
+                    }
+                    Item::Armour(armour) => {
+                        if let Some(current_armour) = self
+                            .world
+                            .components
+                            .armour
+                            .insert(self.player_entity, armour)
+                        {
+                            if let Some(coord) =
+                                self.world.nearest_itemless_coord(self.player_coord())
+                            {
+                                let item = Item::Armour(current_armour);
+                                self.message_log.push(Message::DropItem(item));
+                                self.world.spawn_item(coord, item);
+                            }
+                        }
+                        self.message_log.push(Message::ApplyItem(item));
+                    }
                 }
+                let inventory = self
+                    .world
+                    .components
+                    .inventory
+                    .get_mut(self.player_entity)
+                    .unwrap();
                 inventory.remove(i);
             }
         }
         if despawn_night_stalkers {
             self.world.despawn_night_stalkers(&mut self.message_log);
         }
+        self.update_visibility();
         None
     }
 
@@ -1413,15 +1495,14 @@ impl Game {
             .weapon
             .get(self.player_entity)
             .cloned()
-            .unwrap_or(Weapon::Fists)
+            .unwrap_or(Weapon::BareHands)
     }
 
-    pub fn player_armour(&self) -> Armour {
+    pub fn player_armour(&self) -> Option<Armour> {
         self.world
             .components
             .armour
             .get(self.player_entity)
             .cloned()
-            .unwrap()
     }
 }

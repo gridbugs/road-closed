@@ -93,8 +93,27 @@ impl Terrain {
             }
         }
         let player_spawn = player_coord.unwrap();
-        world.spawn_zombie(player_spawn + ICoord::new(0, 2));
-        //world.spawn_item(player_spawn + ICoord::new(0, 2), Item::MedKit);
+        world.spawn_slime(player_spawn + ICoord::new(-5, 2));
+        world.spawn_slime(player_spawn + ICoord::new(-5, 8));
+        world.spawn_zombie(player_spawn + ICoord::new(-5, 10));
+        world.spawn_zombie(player_spawn + ICoord::new(5, 10));
+        world.spawn_item(player_spawn + ICoord::new(1, 2), Item::Weapon(Weapon::Axe));
+        world.spawn_item(
+            player_spawn + ICoord::new(1, 3),
+            Item::Weapon(Weapon::Knife),
+        );
+        world.spawn_item(
+            player_spawn + ICoord::new(1, 4),
+            Item::Armour(Armour::Overalls),
+        );
+        world.spawn_item(
+            player_spawn + ICoord::new(1, 5),
+            Item::Armour(Armour::LightArmour),
+        );
+        world.spawn_item(
+            player_spawn + ICoord::new(1, 6),
+            Item::Armour(Armour::HeavyArmour),
+        );
         //world.spawn_item(player_spawn + ICoord::new(0, 3), Item::Firewood);
         //world.spawn_item(player_spawn + ICoord::new(0, 4), Item::Fruit);
         //world.spawn_item(player_spawn + ICoord::new(0, 5), Item::Coffee);

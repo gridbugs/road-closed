@@ -134,6 +134,16 @@ impl Running {
         game.witness_handle_input(Input::Get, private)
     }
 
+    pub fn unequip_weapon(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
+        let Self(private) = self;
+        game.witness_handle_input(Input::UnequipWeapon, private)
+    }
+
+    pub fn remove_armour(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
+        let Self(private) = self;
+        game.witness_handle_input(Input::RemoveArmour, private)
+    }
+
     pub fn continue_driving(self, game: &mut Game) -> (Witness, Result<(), ActionError>) {
         let Self(private) = self;
         game.witness_handle_input(Input::ContinueDriving, private)

@@ -55,6 +55,7 @@ pub enum Tile {
     DoorOpen,
     Zombie,
     ZombieCorpse,
+    Slime,
     Debris,
     Item(Item),
     Car(char),
@@ -126,6 +127,7 @@ impl Meter {
 pub enum NpcType {
     Zombie,
     NightStalker,
+    Slime,
 }
 
 impl NpcType {
@@ -133,6 +135,7 @@ impl NpcType {
         match self {
             Self::Zombie => Tile::Zombie,
             Self::NightStalker => Tile::NightStalker,
+            Self::Slime => Tile::Slime,
         }
     }
 }
@@ -145,6 +148,8 @@ pub enum Item {
     Fruit,
     Coffee,
     FuelCan,
+    Weapon(Weapon),
+    Armour(Armour),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -239,27 +244,35 @@ pub struct Npc {
     pub movement: NpcMovement,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Weapon {
-    Fists,
+    BareHands,
+    Knife,
+    Axe,
 }
 
 impl Weapon {
     pub fn damage(&self) -> RangeInclusive<u32> {
         match self {
-            Self::Fists => 1..=2,
+            Self::BareHands => 1..=2,
+            Self::Knife => 3..=5,
+            Self::Axe => 5..=8,
         }
     }
 
     pub fn effect(&self) -> Option<Effect> {
         match self {
-            Self::Fists => Some(Effect::Knockback),
+            Self::BareHands => Some(Effect::Knockback),
+            Self::Knife => None,
+            Self::Axe => Some(Effect::Tiring),
         }
     }
 
     pub fn to_string(&self) -> String {
         match self {
-            Self::Fists => "fists".to_string(),
+            Self::BareHands => "bare hands".to_string(),
+            Self::Knife => "knife".to_string(),
+            Self::Axe => "axe".to_string(),
         }
     }
 }
@@ -267,17 +280,38 @@ impl Weapon {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Effect {
     Knockback,
+    Tiring,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Armour {
     Overalls,
+    LightArmour,
+    HeavyArmour,
 }
 
 impl Armour {
     pub fn damage_reduction(&self) -> u32 {
         match self {
             Armour::Overalls => 1,
+            Armour::LightArmour => 2,
+            Armour::HeavyArmour => 4,
+        }
+    }
+
+    pub fn hunger(&self) -> u32 {
+        match self {
+            Armour::Overalls => 0,
+            Armour::LightArmour => 1,
+            Armour::HeavyArmour => 2,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Armour::Overalls => "overalls".to_string(),
+            Armour::LightArmour => "light armour".to_string(),
+            Armour::HeavyArmour => "heavy armour".to_string(),
         }
     }
 }

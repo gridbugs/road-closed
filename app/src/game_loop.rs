@@ -464,6 +464,12 @@ impl GameLoopData {
                                     }
                                     AppInput::Wait => running.wait(&mut instance.game),
                                     AppInput::Get => running.get(&mut instance.game),
+                                    AppInput::UnequipWeapon => {
+                                        running.unequip_weapon(&mut instance.game)
+                                    }
+                                    AppInput::RemoveArmour => {
+                                        running.remove_armour(&mut instance.game)
+                                    }
                                     AppInput::MessageLog => {
                                         return GameLoopState::MessageLog(running);
                                     }
@@ -924,6 +930,8 @@ fn apply_item_description(item: Item) -> String {
         Food => "Apply to recover food.".to_string(),
         Coffee => "Apply to recover energy.".to_string(),
         FuelCan => "Apply next to car to refill fuel.".to_string(),
+        Weapon(_) => "Apply next to equip.".to_string(),
+        Armour(_) => "Apply next to put on.".to_string(),
     }
 }
 

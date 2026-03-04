@@ -1,5 +1,5 @@
 use crate::{
-    ExternalEvent, Message, World,
+    ActionError, ExternalEvent, Message, World,
     world::{
         data::*,
         spatial::{Layer, Location},
@@ -20,16 +20,19 @@ impl World {
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
     ) {
-        if self.components.to_remove.contains(character) {
-            // prevent cascading damage on explosions
-            return;
-        }
         let hit_points = self
             .components
             .health
             .get_mut(character)
             .expect("character lacks hit_points");
         if hit_points_to_lose >= hit_points.current() {
+            if let Some(&npc_type) = self.components.npc_type.get(character) {
+                message_log.push(Message::NpcHit {
+                    npc_type,
+                    damage: hit_points_to_lose,
+                    weapon,
+                });
+            }
             hit_points.set_current(0);
             self.character_die(character, rng, external_events, message_log);
         } else {
@@ -51,6 +54,7 @@ impl World {
                     let mut copy_data = self.components.clone_entity_data(character);
                     copy_data.health = Some(Meter::new(copy_hit_poinst, hit_points.max()));
                     if let Some(copy_coord) = self.nearest_characterless_coord(coord) {
+                        message_log.push(Message::SlimeSplits);
                         let copy_entity = self.entity_allocator.alloc();
                         self.components.insert_entity_data(copy_entity, copy_data);
                         let _ = self.spatial_table.update(
@@ -129,7 +133,7 @@ impl World {
             .weapon
             .get(player_entity)
             .cloned()
-            .unwrap_or(Weapon::Fists)
+            .unwrap_or(Weapon::BareHands)
     }
 
     pub fn player_bump_combat<R: Rng>(
@@ -139,9 +143,11 @@ impl World {
         rng: &mut R,
         external_events: &mut Vec<ExternalEvent>,
         message_log: &mut Vec<Message>,
-    ) {
+    ) -> Result<(), ActionError> {
+        let player_entity = self.components.player.entities().next().unwrap();
         let weapon = self.player_weapon();
         let damage = rng.random_range(weapon.damage());
+        self.damage_character(character, damage, weapon, rng, external_events, message_log);
         match weapon.effect() {
             None => (),
             Some(Effect::Knockback) => {
@@ -156,8 +162,17 @@ impl World {
                     }
                 }
             }
+            Some(Effect::Tiring) => {
+                let energy = self.components.energy.get_mut(player_entity).unwrap();
+                if energy.is_empty() {
+                    return Err(ActionError::NotEnoughEnergy);
+                } else {
+                    energy.decrease(1);
+                }
+                message_log.push(Message::AttackingMakesYouTired);
+            }
         }
-        self.damage_character(character, damage, weapon, rng, external_events, message_log);
+        Ok(())
     }
 
     fn drop_item(&mut self, item_entity: Entity, coord: ICoord) {

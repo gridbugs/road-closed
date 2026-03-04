@@ -23,7 +23,6 @@ pub fn make_player() -> EntityData {
         car_fuel: Some(Meter::new(20, 20)),
         inventory: Some(Inventory::new(6)),
         car_inventory: Some(Inventory::new(12)),
-        armour: Some(Armour::Overalls),
         ..Default::default()
     }
 }
@@ -212,6 +211,27 @@ impl World {
                 bump_damage: 1..=4,
                 zombie: (),
                 slow: 2,
+            },
+        )
+    }
+
+    pub fn spawn_slime(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Character),
+            entity_data! {
+                tile: Tile::Slime,
+                npc: Npc {
+                    disposition: Disposition::Hostile,
+                    movement: NpcMovement {
+                        can_traverse_difficult: false,
+                        can_open_doors: false,
+                    },
+                },
+                character: (),
+                npc_type: NpcType::Slime,
+                health: Meter::new_full(10),
+                bump_damage: 2..=3,
+                split_on_damage: (),
             },
         )
     }

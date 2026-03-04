@@ -12,6 +12,8 @@ pub enum AppInput {
     Get,
     DropItem,
     ApplyItem,
+    UnequipWeapon,
+    RemoveArmour,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +41,8 @@ impl Default for Controls {
             KeyboardInput::Char('d') => AppInput::DropItem,
             KeyboardInput::Char('a') => AppInput::ApplyItem,
             KeyboardInput::Char('i') => AppInput::ApplyItem,
+            KeyboardInput::Char('u') => AppInput::UnequipWeapon,
+            KeyboardInput::Char('r') => AppInput::RemoveArmour,
         ];
         let driving_keys = btreemap![
             KeyboardInput::Char('d') => AppInputDriving::ContinueDriving,

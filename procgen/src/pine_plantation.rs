@@ -54,6 +54,7 @@ pub struct Map1 {
     pub grid: Grid<Tile>,
     pub player_coord: ICoord,
     pub empty_space_far_from_player: Vec<ICoord>,
+    pub cabin_centres: Vec<ICoord>,
 }
 
 impl Map1 {
@@ -182,6 +183,7 @@ impl Map1 {
         let cabin_size = UCoord::new(8, 6);
         cabin_canditates_left.shuffle(rng);
         cabin_canditates_right.shuffle(rng);
+        let mut cabin_centres = Vec::new();
 
         if let Some(cabin_left_center) = cabin_canditates_left.pop() {
             for (coord, cell) in make_cabin(cabin_size, rng).enumerate() {
@@ -190,6 +192,7 @@ impl Map1 {
                     grid[coord] = Some(*cell);
                 }
             }
+            cabin_centres.push(cabin_left_center);
 
             for cabin_coord in cabin_canditates_left {
                 if (cabin_coord.y - cabin_left_center.y).abs() > 20 {
@@ -199,6 +202,7 @@ impl Map1 {
                             grid[coord] = Some(*cell);
                         }
                     }
+                    cabin_centres.push(cabin_coord);
                     break;
                 }
             }
@@ -211,7 +215,7 @@ impl Map1 {
                     grid[coord] = Some(*cell);
                 }
             }
-
+            cabin_centres.push(cabin_right_center);
             for cabin_coord in cabin_canditates_right {
                 if (cabin_coord.y - cabin_right_center.y).abs() > 20 {
                     for (coord, cell) in make_cabin(cabin_size, rng).enumerate() {
@@ -220,6 +224,7 @@ impl Map1 {
                             grid[coord] = Some(*cell);
                         }
                     }
+                    cabin_centres.push(cabin_coord);
                     break;
                 }
             }
@@ -270,6 +275,7 @@ impl Map1 {
             grid,
             player_coord,
             empty_space_far_from_player,
+            cabin_centres,
         }
     }
 

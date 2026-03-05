@@ -22,6 +22,7 @@ pub enum Tile {
     Grass,
     Floor,
     Wall,
+    BridgeRailing,
     Door,
     Window,
     Car(char),
@@ -67,6 +68,7 @@ pub struct Map1 {
     pub grid: Grid<Tile>,
     pub player_coord: ICoord,
     pub empty_space_far_from_player: Vec<ICoord>,
+    pub cabin_centres: Vec<ICoord>,
 }
 
 impl Map1 {
@@ -82,8 +84,12 @@ impl Map1 {
                 *cell = Some(Tile::Water);
             }
             if noise > 0.08 {
-                if rng.random::<f64>() < 0.0 + noise * 0.5 {
-                    *cell = Some(Tile::Tree);
+                if rng.random::<f64>() < 0.0 + noise * 0.3 {
+                    *cell = Some(if rng.random::<f64>() < 0.1 {
+                        Tile::DeadTree
+                    } else {
+                        Tile::Tree
+                    });
                 }
             }
             let noise2 = perlin
@@ -113,7 +119,7 @@ impl Map1 {
             for j in padded_left..(padded_left + padded_width) {
                 let coord = ICoord::new(j as i32, i as i32);
                 grid[coord] = Some(if over_water {
-                    Tile::Wall
+                    Tile::BridgeRailing
                 } else if rng.random::<f32>() < 0.5 {
                     Tile::Grass
                 } else {
@@ -139,6 +145,7 @@ impl Map1 {
             perlin.noise(perlin_coord).abs()
         };
 
+        let mut cabin_centres = Vec::new();
         let mut num_cabins = 0;
         'outer: for _ in 0..100 {
             let cabin_size = UCoord::new(rng.random_range(7..=10), rng.random_range(6..=9));
@@ -165,6 +172,7 @@ impl Map1 {
                     grid[coord] = Some(*cell);
                 }
             }
+            cabin_centres.push(cabin_top_left + cabin_size.to_icoord() / 2);
             num_cabins += 1;
         }
 
@@ -214,10 +222,35 @@ impl Map1 {
             return None;
         }
 
+        let empty_space_far_from_player = grid
+            .enumerate()
+            .filter_map(|(coord, cell)| {
+                if coord.manhattan_distance(player_coord) < 15 {
+                    match cell {
+                        Tile::Floor | Tile::Ground | Tile::Grass | Tile::Road => Some(coord),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let player_coord = grid
+            .enumerate()
+            .find_map(|(coord, cell)| {
+                if let Tile::Player = cell {
+                    Some(coord)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+
         Some(Self {
             grid,
-            player_coord: icoord(0, 0),
-            empty_space_far_from_player: Vec::new(),
+            player_coord,
+            empty_space_far_from_player,
+            cabin_centres,
         })
     }
 
@@ -242,6 +275,7 @@ impl Map1 {
                     Tile::Grass => print!("\""),
                     Tile::Floor => print!("."),
                     Tile::Wall => print!("#"),
+                    Tile::BridgeRailing => print!("#"),
                     Tile::Door => print!("+"),
                     Tile::Window => print!("="),
                     Tile::Car(ch) => print!("{}", ch),

@@ -93,27 +93,8 @@ impl Terrain {
             }
         }
         let player_spawn = player_coord.unwrap();
-        world.spawn_slime(player_spawn + ICoord::new(-5, 2));
-        world.spawn_slime(player_spawn + ICoord::new(-5, 8));
-        world.spawn_zombie(player_spawn + ICoord::new(-5, 10));
-        world.spawn_zombie(player_spawn + ICoord::new(5, 10));
-        world.spawn_item(player_spawn + ICoord::new(1, 2), Item::Weapon(Weapon::Axe));
-        world.spawn_item(
-            player_spawn + ICoord::new(1, 3),
-            Item::Weapon(Weapon::Knife),
-        );
-        world.spawn_item(
-            player_spawn + ICoord::new(1, 4),
-            Item::Armour(Armour::Overalls),
-        );
-        world.spawn_item(
-            player_spawn + ICoord::new(1, 5),
-            Item::Armour(Armour::LightArmour),
-        );
-        world.spawn_item(
-            player_spawn + ICoord::new(1, 6),
-            Item::Armour(Armour::HeavyArmour),
-        );
+        //world.spawn_zombie(player_spawn + ICoord::new(0, 2));
+        //world.spawn_item(player_spawn + ICoord::new(0, 2), Item::MedKit);
         //world.spawn_item(player_spawn + ICoord::new(0, 3), Item::Firewood);
         //world.spawn_item(player_spawn + ICoord::new(0, 4), Item::Fruit);
         //world.spawn_item(player_spawn + ICoord::new(0, 5), Item::Coffee);
@@ -169,6 +150,133 @@ impl Terrain {
                 }
                 Typewriter => {
                     world.spawn_typewriter(coord);
+                }
+            }
+        }
+        let player_spawn = player_coord.unwrap();
+        Self {
+            player_spawn,
+            world,
+        }
+    }
+
+    pub fn generate_swamp<R: Rng>(rng: &mut R) -> Self {
+        use procgen::forest::{Map1, Tile as MapTile};
+        let map1 = Map1::generate(rng);
+        let mut player_coord = None;
+        let mut world = World::new(map1.grid.size());
+        for (coord, &cell) in map1.grid.enumerate() {
+            use MapTile::*;
+            match cell {
+                Player => {
+                    player_coord = Some(coord);
+                    world.spawn_road(coord);
+                }
+                Car(ch) => {
+                    world.spawn_car_part(coord, ch);
+                }
+                Ground => {
+                    world.spawn_ground(coord);
+                }
+                Road => {
+                    world.spawn_road(coord);
+                }
+                Tree => {
+                    world.spawn_tree(coord);
+                }
+                DeadTree => {
+                    world.spawn_dead_tree(coord);
+                }
+                FallenTree => {
+                    world.spawn_fallen_tree(coord);
+                }
+                FireWood => {
+                    world.spawn_firewood(coord);
+                }
+                Wall => {
+                    world.spawn_cabin_wall(coord);
+                }
+                BridgeRailing => {
+                    world.spawn_bridge_railing(coord);
+                }
+                Floor => {
+                    world.spawn_floor(coord);
+                }
+                Door => {
+                    world.spawn_door(coord);
+                }
+                Window => {
+                    world.spawn_window(coord);
+                }
+                Grass => {
+                    world.spawn_grass(coord);
+                }
+                Water => {
+                    world.spawn_water(coord);
+                }
+                WaterTree => {
+                    world.spawn_water(coord);
+                    world.spawn_tree(coord);
+                }
+            }
+        }
+        let player_spawn = player_coord.unwrap();
+        Self {
+            player_spawn,
+            world,
+        }
+    }
+
+    pub fn generate_mountain_pass<R: Rng>(rng: &mut R) -> Self {
+        use procgen::mountain_pass::{Map1, Tile as MapTile};
+        let map1 = Map1::generate(rng);
+        let mut player_coord = None;
+        let mut world = World::new(map1.grid.size());
+        for (coord, &cell) in map1.grid.enumerate() {
+            use MapTile::*;
+            match cell {
+                Player => {
+                    player_coord = Some(coord);
+                    world.spawn_road(coord);
+                }
+                Car(ch) => {
+                    world.spawn_car_part(coord, ch);
+                }
+                Ground => {
+                    world.spawn_ground(coord);
+                }
+                Road => {
+                    world.spawn_road(coord);
+                }
+                Tree => {
+                    world.spawn_tree(coord);
+                }
+                DeadTree => {
+                    world.spawn_dead_tree(coord);
+                }
+                FallenTree => {
+                    world.spawn_fallen_tree(coord);
+                }
+                FireWood => {
+                    world.spawn_firewood(coord);
+                }
+                Wall => {
+                    world.spawn_cabin_wall(coord);
+                }
+                CliffFace => {
+                    world.spawn_cliff_face(coord);
+                }
+                Floor => {
+                    world.spawn_floor(coord);
+                }
+                Door => {
+                    world.spawn_door(coord);
+                }
+                Window => {
+                    world.spawn_window(coord);
+                }
+                Grass => {
+                    world.spawn_grass(coord);
                 }
             }
         }

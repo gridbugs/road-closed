@@ -60,6 +60,27 @@ impl World {
         )
     }
 
+    pub fn spawn_bridge_railing(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::BridgeRailing,
+                solid: (),
+            },
+        )
+    }
+
+    pub fn spawn_cliff_face(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Feature),
+            entity_data! {
+                tile: Tile::CliffFace,
+                solid: (),
+                opacity: 255,
+            },
+        )
+    }
+
     pub fn spawn_debris(&mut self, coord: ICoord) -> Entity {
         self.spawn_entity(
             (coord, Layer::Feature),
@@ -85,6 +106,15 @@ impl World {
             (coord, Layer::Floor),
             entity_data! {
                 tile: Tile::Floor,
+            },
+        )
+    }
+
+    pub fn spawn_water(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Floor),
+            entity_data! {
+                tile: Tile::Water,
             },
         )
     }

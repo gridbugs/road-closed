@@ -174,6 +174,23 @@ impl GameInstance {
                         .with_foreground(colours::WALL.to_rgba32(255)),
                 };
             }
+            Tile::BridgeRailing => {
+                return RenderCell {
+                    character: Some('#'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::BRIDGE_RAILING.to_rgba32(255)),
+                };
+            }
+            Tile::CliffFace => {
+                return RenderCell {
+                    character: Some('#'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::CLIFF_FACE.to_rgba32(255)),
+                };
+            }
+
             Tile::Debris => {
                 return RenderCell {
                     character: Some('%'),
@@ -334,6 +351,14 @@ impl GameInstance {
                     style: Style::new()
                         .with_bold(false)
                         .with_foreground(colours::FLOOR.to_rgba32(255)),
+                };
+            }
+            Tile::Water => {
+                return RenderCell {
+                    character: Some('~'),
+                    style: Style::new()
+                        .with_bold(false)
+                        .with_foreground(colours::WATER.to_rgba32(255)),
                 };
             }
             Tile::Typewriter => {
@@ -1007,6 +1032,16 @@ fn describe_tile(tile: Tile) -> Description {
             name: Text::new(vec![StyledString::plain_text("a wall".to_string())]),
             description: None,
         },
+        Tile::BridgeRailing => Description {
+            name: Text::new(vec![StyledString::plain_text(
+                "a bridge railing".to_string(),
+            )]),
+            description: None,
+        },
+        Tile::CliffFace => Description {
+            name: Text::new(vec![StyledString::plain_text("a cliff face".to_string())]),
+            description: None,
+        },
         Tile::DoorClosed => Description {
             name: Text::new(vec![StyledString::plain_text("a closed door".to_string())]),
             description: None,
@@ -1250,6 +1285,10 @@ fn describe_tile(tile: Tile) -> Description {
             name: Text::new(vec![StyledString::plain_text("the floor".to_string())]),
             description: None,
         },
+        Tile::Water => Description {
+            name: Text::new(vec![StyledString::plain_text("some water".to_string())]),
+            description: None,
+        },
         Tile::Typewriter => Description {
             name: Text::new(vec![StyledString::plain_text(
                 "a typewriter. The wish granter?".to_string(),
@@ -1329,6 +1368,17 @@ fn terrain_type_text(terrain_type: TerrainType) -> Text {
                 StyledString::plain_text("You are driving along an abandoned fire trail through a pine plantation, overgrown with weeds. The trees, once organized into well-kempt rows, now stand at odd angles as they are reclaimed by nature.".to_string())
             ])
         }
+        TerrainType::Swamp => {
+            Text::new(vec![
+                StyledString::plain_text("You are driving through a swamp. The road bridges creeks and flooded woodlands. Through the trees you can see the ruins of some cabins.".to_string())
+            ])
+        }
+        TerrainType::MountainPass => {
+            Text::new(vec![
+                StyledString::plain_text("You are driving through a mountain pass. Narrow paths wind between the cliffs which surround you on both sides.".to_string())
+            ])
+        }
+
     }
 }
 

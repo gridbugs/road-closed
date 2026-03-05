@@ -21,6 +21,7 @@ pub enum Tile {
     Grass,
     Floor,
     Wall,
+    CliffFace,
     Door,
     Window,
     Car(char),
@@ -64,6 +65,7 @@ pub struct Map1 {
     pub grid: Grid<Tile>,
     pub player_coord: ICoord,
     pub empty_space_far_from_player: Vec<ICoord>,
+    pub cabin_centers: Vec<ICoord>,
 }
 
 fn conway_grid<R: Rng>(size: UCoord, rng: &mut R) -> Grid<bool> {
@@ -179,7 +181,7 @@ impl Map1 {
                 let x = rng.random::<f32>();
                 if x < 0.03 {
                     Tile::DeadTree
-                } else if x < 0.07 {
+                } else if x < 0.09 {
                     Tile::FireWood
                 } else if x < 0.1 {
                     Tile::Tree
@@ -189,7 +191,7 @@ impl Map1 {
                     Tile::Ground
                 }
             } else {
-                Tile::Wall
+                Tile::CliffFace
             }
         });
 
@@ -230,6 +232,7 @@ impl Map1 {
             perlin.noise(perlin_coord).abs()
         };
 
+        let mut cabin_centers = Vec::new();
         let mut num_cabins = 0;
         'outer: for _ in 0..100 {
             let cabin_size = UCoord::new(rng.random_range(5..=7), rng.random_range(4..=7));
@@ -256,13 +259,40 @@ impl Map1 {
                     grid[coord] = *cell;
                 }
             }
+            cabin_centers.push(cabin_top_left + cabin_size.to_icoord() / 2);
             num_cabins += 1;
         }
 
+        let player_coord = grid
+            .enumerate()
+            .find_map(|(coord, cell)| {
+                if let Tile::Player = cell {
+                    Some(coord)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+
+        let empty_space_far_from_player = grid
+            .enumerate()
+            .filter_map(|(coord, cell)| {
+                if coord.manhattan_distance(player_coord) < 15 {
+                    match cell {
+                        Tile::Floor | Tile::Ground | Tile::Grass | Tile::Road => Some(coord),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
         Self {
-            player_coord: icoord(0, 0),
+            player_coord,
             grid,
-            empty_space_far_from_player: Vec::new(),
+            empty_space_far_from_player,
+            cabin_centers,
         }
     }
 
@@ -279,6 +309,7 @@ impl Map1 {
                     Tile::Grass => print!("\""),
                     Tile::Floor => print!("."),
                     Tile::Wall => print!("#"),
+                    Tile::CliffFace => print!("#"),
                     Tile::Door => print!("+"),
                     Tile::Window => print!("="),
                     Tile::Car(ch) => print!("{}", ch),

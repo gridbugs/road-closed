@@ -4,7 +4,7 @@ pub use entity_table::{ComponentTable, Entity, entity_data, entity_update};
 pub use grid_2d::{Grid, ICoord, UCoord};
 pub use grid_search_cardinal::distance_map;
 pub use line_2d::{self, coords_between, coords_between_cardinal};
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_isaac::Isaac64Rng;
 pub use rgb_int::{Rgb24, Rgba32};
 use serde::{Deserialize, Serialize};
@@ -265,7 +265,33 @@ pub enum Input {
 pub enum TerrainType {
     Start,
     PinePlantation,
+    Swamp,
+    MountainPass,
     End,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Shuffle<T: Clone> {
+    all: Vec<T>,
+    current_shuffle: Vec<T>,
+}
+
+impl<T: Clone> Shuffle<T> {
+    fn new(all: Vec<T>) -> Self {
+        assert!(!all.is_empty());
+        Self {
+            all,
+            current_shuffle: Vec::new(),
+        }
+    }
+
+    fn next<R: Rng>(&mut self, rng: &mut R) -> T {
+        if self.current_shuffle.is_empty() {
+            self.current_shuffle = self.all.clone();
+            self.current_shuffle.shuffle(rng);
+        }
+        self.current_shuffle.pop().unwrap()
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -371,6 +397,8 @@ pub struct Game {
     distance_travelled: u32,
     distance_remaining: u32,
     nightstalker_countdown: Countdown,
+    terrain_shuffle: Shuffle<TerrainType>,
+    terrain_change_countdown: Countdown,
 }
 
 impl Game {
@@ -387,6 +415,12 @@ impl Game {
             layer: Some(Layer::Character),
         };
         let player_entity = world.insert_entity_data(player_location, player_data);
+        let mut terrain_shuffle = Shuffle::new(vec![
+            TerrainType::PinePlantation,
+            TerrainType::Swamp,
+            TerrainType::MountainPass,
+        ]);
+        let terrain_type = terrain_shuffle.next(&mut rng);
         let mut game = Self {
             ai_context: AiContext::new(world.size()),
             world,
@@ -403,7 +437,8 @@ impl Game {
             game_over: false,
             mode: Mode::Driving,
             time_of_day: TimeOfDay { hour: 6, minute: 0 },
-            terrain_type: TerrainType::PinePlantation,
+            terrain_type,
+            terrain_shuffle,
             energy_countdown: Countdown::new(120),
             pass_out_countdown: Countdown::new(30),
             passed_out_for: 0,
@@ -412,6 +447,7 @@ impl Game {
             distance_travelled: 0,
             distance_remaining: 2000,
             nightstalker_countdown: Countdown::new(20),
+            terrain_change_countdown: Countdown::new(10),
         };
         game.systems();
         game.update_visibility();
@@ -430,7 +466,13 @@ impl Game {
         let terrain = if self.at_end() {
             Terrain::generate_end(&mut self.rng)
         } else {
-            Terrain::generate_pine_plantation(&mut self.rng)
+            match self.terrain_type {
+                TerrainType::Start => panic!(),
+                TerrainType::Swamp => Terrain::generate_swamp(&mut self.rng),
+                TerrainType::MountainPass => Terrain::generate_mountain_pass(&mut self.rng),
+                TerrainType::PinePlantation => Terrain::generate_pine_plantation(&mut self.rng),
+                TerrainType::End => Terrain::generate_end(&mut self.rng),
+            }
         };
         let player_data = self.world.components.remove_entity_data(self.player_entity);
         self.world = terrain.world;
@@ -1059,6 +1101,9 @@ impl Game {
                     self.mode = Mode::Walking;
                     self.message_log.push(Message::OutOfFuel);
                     self.message_log.push(Message::GetOutOfCar);
+                }
+                if self.terrain_change_countdown.tick() {
+                    self.terrain_type = self.terrain_shuffle.next(&mut self.rng);
                 }
                 self.regenerate_terrain();
                 None

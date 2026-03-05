@@ -62,10 +62,13 @@ pub enum Tile {
     Grass,
     CrushedGrass,
     CabinWall,
+    BridgeRailing,
+    CliffFace,
     Window,
     Floor,
     NightStalker,
     Typewriter,
+    Water,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

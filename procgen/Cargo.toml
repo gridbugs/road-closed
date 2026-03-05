@@ -17,3 +17,6 @@ name = "city"
 
 [[example]]
 name = "pine_plantation"
+
+[[example]]
+name = "forest"

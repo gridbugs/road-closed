@@ -20,3 +20,6 @@ name = "pine_plantation"
 
 [[example]]
 name = "forest"
+
+[[example]]
+name = "mountain_pass"

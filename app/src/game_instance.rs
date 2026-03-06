@@ -233,7 +233,7 @@ impl GameInstance {
             }
             Tile::Item(Item::Fruit) => {
                 return RenderCell {
-                    character: Some('['),
+                    character: Some('●'),
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::FRUIT.to_rgba32(255)),
@@ -285,6 +285,22 @@ impl GameInstance {
                     style: Style::new()
                         .with_bold(true)
                         .with_foreground(colours::SLIME.to_rgba32(255)),
+                };
+            }
+            Tile::Climber => {
+                return RenderCell {
+                    character: Some('c'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::CLIMBER.to_rgba32(255)),
+                };
+            }
+            Tile::Drainer => {
+                return RenderCell {
+                    character: Some('d'),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::DRAINER.to_rgba32(255)),
                 };
             }
 
@@ -1203,7 +1219,7 @@ fn describe_tile(tile: Tile) -> Description {
                 },
             ]),
             description: Some(Text::new(vec![StyledString::plain_text(
-                "It moves slowly.\n\nIt doesn't stay dead.".to_string(),
+                "It doesn't stay dead.".to_string(),
             )])),
         },
         Tile::ZombieCorpse => Description {
@@ -1232,6 +1248,34 @@ fn describe_tile(tile: Tile) -> Description {
             ]),
             description: Some(Text::new(vec![StyledString::plain_text(
                 "Splits when damaged.".to_string(),
+            )])),
+        },
+        Tile::Climber => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "climber".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::CLIMBER.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![StyledString::plain_text(
+                "Climbs over obstacles.".to_string(),
+            )])),
+        },
+        Tile::Drainer => Description {
+            name: Text::new(vec![
+                StyledString::plain_text("a ".to_string()),
+                StyledString {
+                    string: "drainer".to_string(),
+                    style: Style::new()
+                        .with_bold(true)
+                        .with_foreground(colours::DRAINER.to_rgba32(255)),
+                },
+            ]),
+            description: Some(Text::new(vec![StyledString::plain_text(
+                "Saps your energy.".to_string(),
             )])),
         },
 
@@ -1402,6 +1446,18 @@ fn npc_type_to_styled_string(npc_type: NpcType) -> text::StyledString {
             style: Style::new()
                 .with_bold(true)
                 .with_foreground(colours::SLIME.to_rgba32(255)),
+        },
+        NpcType::Climber => StyledString {
+            string: "climber".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::CLIMBER.to_rgba32(255)),
+        },
+        NpcType::Drainer => StyledString {
+            string: "drainer".to_string(),
+            style: Style::new()
+                .with_bold(true)
+                .with_foreground(colours::DRAINER.to_rgba32(255)),
         },
     }
 }
@@ -1784,6 +1840,9 @@ pub fn message_to_text(message: Message) -> Text {
         Message::AttackingMakesYouTired => Text::new(vec![StyledString::plain_text(
             "The effort of swinging your weapon tires you out.".to_string(),
         )]),
+        Message::DrainEnergy => Text::new(vec![StyledString::plain_text(
+            "Some of your energy is drained.".to_string(),
+        )]),
     }
 }
 
@@ -1860,15 +1919,15 @@ pub fn item_string_for_menu(item: Item) -> String {
         Item::Coffee => "Coffee".to_string(),
         Item::FuelCan => "Fuel Can".to_string(),
         Item::Weapon(weapon) => match weapon {
-            Weapon::BareHands => "bare handns",
-            Weapon::Knife => "knife",
-            Weapon::Axe => "axe",
+            Weapon::BareHands => "Bare Handns",
+            Weapon::Knife => "Knife",
+            Weapon::Axe => "Axe",
         }
         .to_string(),
         Item::Armour(armour) => match armour {
-            Armour::Overalls => "overalls",
-            Armour::LightArmour => "light armour",
-            Armour::HeavyArmour => "heavy armour",
+            Armour::Overalls => "Overalls",
+            Armour::LightArmour => "Light Armour",
+            Armour::HeavyArmour => "Heavy Armour",
         }
         .to_string(),
     }

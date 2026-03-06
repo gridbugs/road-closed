@@ -14,15 +14,15 @@ pub fn make_player() -> EntityData {
         tile: Some(Tile::Player),
         light: Some(Light {
             colour: Rgb24::new(150, 150, 150),
-            vision_distance: vision_distance::Circle::new_squared(300),
+            vision_distance: vision_distance::Circle::new_squared(700),
             diminish: Diminish::default().with_height(100.),
         }),
         health: Some(Meter::new(20, 20)),
         energy: Some(Meter::new(20, 20)),
         food: Some(Meter::new(20, 20)),
         car_fuel: Some(Meter::new(20, 20)),
-        inventory: Some(Inventory::new(6)),
-        car_inventory: Some(Inventory::new(12)),
+        inventory: Some(Inventory::new(8)),
+        car_inventory: Some(Inventory::new(16)),
         ..Default::default()
     }
 }
@@ -240,7 +240,6 @@ impl World {
                 resurrects_in: Meter::new_full(5),
                 bump_damage: 1..=4,
                 zombie: (),
-                slow: 2,
             },
         )
     }
@@ -262,6 +261,47 @@ impl World {
                 health: Meter::new_full(10),
                 bump_damage: 2..=3,
                 split_on_damage: (),
+            },
+        )
+    }
+
+    pub fn spawn_climber(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Character),
+            entity_data! {
+                tile: Tile::Climber,
+                npc: Npc {
+                    disposition: Disposition::Hostile,
+                    movement: NpcMovement {
+                        can_traverse_difficult: true,
+                        can_open_doors: false,
+                    },
+                },
+                character: (),
+                npc_type: NpcType::Climber,
+                health: Meter::new_full(5),
+                bump_damage: 2..=3,
+            },
+        )
+    }
+
+    pub fn spawn_drainer(&mut self, coord: ICoord) -> Entity {
+        self.spawn_entity(
+            (coord, Layer::Character),
+            entity_data! {
+                tile: Tile::Drainer,
+                npc: Npc {
+                    disposition: Disposition::Hostile,
+                    movement: NpcMovement {
+                        can_traverse_difficult: false,
+                        can_open_doors: false,
+                    },
+                },
+                character: (),
+                npc_type: NpcType::Drainer,
+                drainer: (),
+                health: Meter::new_full(8),
+                bump_damage: 1..=2,
             },
         )
     }

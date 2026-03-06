@@ -107,6 +107,15 @@ impl World {
         } else {
             hit_points.decrease(hit_points_to_lose);
         }
+        if self.components.drainer.contains(character) {
+            let energy = self
+                .components
+                .energy
+                .get_mut(player_entity)
+                .expect("character lacks hit_points");
+            energy.decrease(1);
+            message_log.push(Message::DrainEnergy);
+        }
     }
 
     fn character_die<R: Rng>(

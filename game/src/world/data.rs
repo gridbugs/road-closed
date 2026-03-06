@@ -33,6 +33,7 @@ declare_entity_module! {
         grass: (),
         zombie: (),
         night_stalker: (),
+        drainer: (),
         slow: u64,
         typewriter: (),
         weapon: Weapon,
@@ -69,6 +70,8 @@ pub enum Tile {
     NightStalker,
     Typewriter,
     Water,
+    Climber,
+    Drainer,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,6 +134,8 @@ pub enum NpcType {
     Zombie,
     NightStalker,
     Slime,
+    Climber,
+    Drainer,
 }
 
 impl NpcType {
@@ -139,6 +144,8 @@ impl NpcType {
             Self::Zombie => Tile::Zombie,
             Self::NightStalker => Tile::NightStalker,
             Self::Slime => Tile::Slime,
+            Self::Climber => Tile::Climber,
+            Self::Drainer => Tile::Drainer,
         }
     }
 }

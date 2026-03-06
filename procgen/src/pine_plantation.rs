@@ -117,7 +117,7 @@ impl Map1 {
 
         let wild_tile = |rng: &mut R| {
             let roll = rng.random::<f32>();
-            if roll < 0.02 {
+            if roll < 0.05 {
                 Tile::FireWood
             } else if roll < 0.1 {
                 Tile::DeadTree
@@ -260,7 +260,7 @@ impl Map1 {
         let empty_space_far_from_player = grid
             .enumerate()
             .filter_map(|(coord, cell)| {
-                if coord.manhattan_distance(player_coord) < 15 {
+                if coord.manhattan_distance(player_coord) > 15 {
                     match cell {
                         Tile::Floor | Tile::Ground | Tile::Grass | Tile::Road => Some(coord),
                         _ => None,

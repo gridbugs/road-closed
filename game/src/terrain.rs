@@ -1,12 +1,12 @@
-use crate::world::{World, data::*};
+use crate::world::World;
 use coord_2d::{ICoord, UCoord};
-use direction::Direction;
-use procgen::city::{Map, TentacleSpec, Tile};
-use rand::{Rng, prelude::IndexedRandom, seq::SliceRandom};
+use rand::{Rng, seq::SliceRandom};
 
 pub struct Terrain {
     pub world: World,
     pub player_spawn: ICoord,
+    empty_space_far_from_player: Vec<ICoord>,
+    cabin_centers: Vec<ICoord>,
 }
 
 impl Terrain {
@@ -39,6 +39,8 @@ impl Terrain {
         Self {
             player_spawn: ICoord::new(0, 0),
             world,
+            empty_space_far_from_player: Vec::new(),
+            cabin_centers: Vec::new(),
         }
     }
 
@@ -103,6 +105,8 @@ impl Terrain {
         Self {
             player_spawn,
             world,
+            empty_space_far_from_player: map1.empty_space_far_from_player,
+            cabin_centers: map1.cabin_centres,
         }
     }
 
@@ -157,6 +161,8 @@ impl Terrain {
         Self {
             player_spawn,
             world,
+            empty_space_far_from_player: Vec::new(),
+            cabin_centers: Vec::new(),
         }
     }
 
@@ -224,6 +230,8 @@ impl Terrain {
         Self {
             player_spawn,
             world,
+            empty_space_far_from_player: map1.empty_space_far_from_player,
+            cabin_centers: map1.cabin_centres,
         }
     }
 
@@ -284,6 +292,123 @@ impl Terrain {
         Self {
             player_spawn,
             world,
+            empty_space_far_from_player: map1.empty_space_far_from_player,
+            cabin_centers: map1.cabin_centers,
+        }
+    }
+
+    pub fn populate<R: Rng>(&mut self, distance_remaining: u32, rng: &mut R) {
+        use crate::world::data::Armour::*;
+        use crate::world::data::Item::*;
+        use crate::world::data::NpcType::*;
+        use crate::world::data::Weapon::*;
+        let mut cabin_center_items = match distance_remaining {
+            0..500 => vec![
+                Weapon(Axe),
+                Weapon(Axe),
+                Weapon(Knife),
+                Armour(HeavyArmour),
+                Armour(LightArmour),
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+            ],
+            500..1000 => vec![
+                Weapon(Axe),
+                Weapon(Knife),
+                Armour(LightArmour),
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+            ],
+            1000..1500 => vec![
+                Weapon(Knife),
+                Armour(LightArmour),
+                Armour(Overalls),
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+            ],
+            1500.. => vec![
+                Weapon(Knife),
+                Armour(Overalls),
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                FuelCan,
+                Coffee,
+                MedKit,
+                Food,
+            ],
+        };
+        cabin_center_items.shuffle(rng);
+        for &coord in &self.cabin_centers {
+            if let Some(item) = cabin_center_items.pop() {
+                self.world.spawn_item(coord, item);
+            }
+        }
+        self.empty_space_far_from_player.shuffle(rng);
+        let num_fruit = 20;
+        for _ in 0..num_fruit {
+            if let Some(coord) = self.empty_space_far_from_player.pop() {
+                self.world.spawn_item(coord, Fruit);
+            }
+        }
+        let mut npcs = match distance_remaining {
+            0..500 => vec![
+                Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime, Slime, Drainer,
+                Drainer, Drainer,
+            ],
+            500..1000 => vec![
+                Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime,
+                Drainer,
+            ],
+            1000..1500 => vec![
+                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Slime,
+            ],
+            1500.. => vec![
+                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Slime,
+            ],
+        };
+        npcs.shuffle(rng);
+        for npc in npcs {
+            if let Some(coord) = self.empty_space_far_from_player.pop() {
+                match npc {
+                    Zombie => {
+                        self.world.spawn_zombie(coord);
+                    }
+                    Slime => {
+                        self.world.spawn_slime(coord);
+                    }
+                    Drainer => {
+                        self.world.spawn_drainer(coord);
+                    }
+                    Climber => {
+                        self.world.spawn_climber(coord);
+                    }
+                    _ => (),
+                }
+            }
         }
     }
 }

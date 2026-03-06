@@ -27,14 +27,6 @@ pub enum Tile {
     Car(char),
     Player,
 }
-impl Tile {
-    fn traversable(&self) -> bool {
-        match self {
-            Tile::Grass | Tile::Ground | Tile::Road | Tile::Floor | Tile::FireWood => true,
-            _ => false,
-        }
-    }
-}
 
 fn make_cabin<R: Rng>(size: UCoord, rng: &mut R) -> Grid<Tile> {
     let mut grid = Grid::new_copy(size, Tile::Floor);
@@ -181,7 +173,7 @@ impl Map1 {
                 let x = rng.random::<f32>();
                 if x < 0.03 {
                     Tile::DeadTree
-                } else if x < 0.09 {
+                } else if x < 0.02 {
                     Tile::FireWood
                 } else if x < 0.1 {
                     Tile::Tree
@@ -205,6 +197,8 @@ impl Map1 {
                     Tile::DeadTree
                 } else if x < 0.02 {
                     Tile::FireWood
+                } else if x < 0.03 {
+                    Tile::FallenTree
                 } else if x < 0.05 {
                     Tile::Tree
                 } else if x < 0.5 {
@@ -277,7 +271,7 @@ impl Map1 {
         let empty_space_far_from_player = grid
             .enumerate()
             .filter_map(|(coord, cell)| {
-                if coord.manhattan_distance(player_coord) < 15 {
+                if coord.manhattan_distance(player_coord) > 15 {
                     match cell {
                         Tile::Floor | Tile::Ground | Tile::Grass | Tile::Road => Some(coord),
                         _ => None,

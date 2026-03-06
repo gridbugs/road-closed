@@ -206,6 +206,7 @@ pub enum Message {
     ArmourMakesYouHungry,
     AttackingMakesYouTired,
     SlimeSplits,
+    DrainEnergy,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -399,6 +400,7 @@ pub struct Game {
     nightstalker_countdown: Countdown,
     terrain_shuffle: Shuffle<TerrainType>,
     terrain_change_countdown: Countdown,
+    terrain_generated_distance: u32,
 }
 
 impl Game {
@@ -446,6 +448,7 @@ impl Game {
             driving_food_countdown: Countdown::new(2),
             distance_travelled: 0,
             distance_remaining: 2000,
+            terrain_generated_distance: 2000,
             nightstalker_countdown: Countdown::new(20),
             terrain_change_countdown: Countdown::new(10),
         };
@@ -463,26 +466,31 @@ impl Game {
     }
 
     pub fn regenerate_terrain(&mut self) {
-        let terrain = if self.at_end() {
-            Terrain::generate_end(&mut self.rng)
-        } else {
-            match self.terrain_type {
-                TerrainType::Start => panic!(),
-                TerrainType::Swamp => Terrain::generate_swamp(&mut self.rng),
-                TerrainType::MountainPass => Terrain::generate_mountain_pass(&mut self.rng),
-                TerrainType::PinePlantation => Terrain::generate_pine_plantation(&mut self.rng),
-                TerrainType::End => Terrain::generate_end(&mut self.rng),
-            }
-        };
-        let player_data = self.world.components.remove_entity_data(self.player_entity);
-        self.world = terrain.world;
-        let player_location = Location {
-            coord: terrain.player_spawn,
-            layer: Some(Layer::Character),
-        };
-        self.player_entity = self.world.insert_entity_data(player_location, player_data);
-        self.visibility_grid = VisibilityGrid::new(self.world.spatial_table.grid_size());
-        self.ai_context = AiContext::new(self.world.size());
+        if self.terrain_generated_distance != self.distance_remaining {
+            let terrain = if self.at_end() {
+                Terrain::generate_end(&mut self.rng)
+            } else {
+                let mut terrain = match self.terrain_type {
+                    TerrainType::Start => panic!(),
+                    TerrainType::Swamp => Terrain::generate_swamp(&mut self.rng),
+                    TerrainType::MountainPass => Terrain::generate_mountain_pass(&mut self.rng),
+                    TerrainType::PinePlantation => Terrain::generate_pine_plantation(&mut self.rng),
+                    TerrainType::End => Terrain::generate_end(&mut self.rng),
+                };
+                terrain.populate(self.distance_remaining, &mut self.rng);
+                terrain
+            };
+            let player_data = self.world.components.remove_entity_data(self.player_entity);
+            self.world = terrain.world;
+            let player_location = Location {
+                coord: terrain.player_spawn,
+                layer: Some(Layer::Character),
+            };
+            self.player_entity = self.world.insert_entity_data(player_location, player_data);
+            self.visibility_grid = VisibilityGrid::new(self.world.spatial_table.grid_size());
+            self.ai_context = AiContext::new(self.world.size());
+            self.terrain_generated_distance = self.distance_remaining;
+        }
     }
 
     pub fn terrain_type(&self) -> TerrainType {
@@ -529,7 +537,7 @@ impl Game {
             let distance = if self.time_of_day.is_night() {
                 Circle::new_squared(40)
             } else {
-                Circle::new_squared(300)
+                Circle::new_squared(700)
             };
             self.visibility_grid.update_custom(
                 Rgb24::new_grey(0),
@@ -703,7 +711,7 @@ impl Game {
                     )?;
                 } else if self.world.components.zombie.contains(character_entity) {
                     self.message_log.push(Message::KickZombieCorpse);
-                    if self.rng.random::<f32>() < 0.25 {
+                    if self.rng.random::<f32>() < 0.33 {
                         self.message_log.push(Message::DestroyZombieCorpse);
                         self.world.remove_entity(character_entity);
                     }
@@ -815,35 +823,37 @@ impl Game {
     }
 
     fn npc_turn(&mut self) -> Option<GameControlFlow> {
-        self.npc_setup_agents();
-        self.ai_context.update(self.player_entity, &self.world);
-        let agent_entities = self.agents.entities().collect::<Vec<_>>();
-        for agent_entity in agent_entities {
-            if !self.world.components.character.contains(agent_entity) {
-                // so that dead zombies don't get a turn
-                continue;
-            }
-            if let Some(slow) = self.world.components.slow.get(agent_entity) {
-                if !self.turn_count.is_multiple_of(*slow) {
+        if let Mode::Walking = self.mode {
+            self.npc_setup_agents();
+            self.ai_context.update(self.player_entity, &self.world);
+            let agent_entities = self.agents.entities().collect::<Vec<_>>();
+            for agent_entity in agent_entities {
+                if !self.world.components.character.contains(agent_entity) {
+                    // so that dead zombies don't get a turn
                     continue;
                 }
-            }
-            let ai_input = self.agents.get_mut(agent_entity).unwrap().act(
-                agent_entity,
-                &self.world,
-                self.player_entity,
-                &mut self.ai_context,
-                &mut self.rng,
-            );
-            if let Some(input) = ai_input {
-                match input {
-                    Input::Wait => (),
-                    Input::Walk(direction) => {
-                        if let Some(control_flow) = self.npc_walk(agent_entity, direction) {
-                            return Some(control_flow);
-                        }
+                if let Some(slow) = self.world.components.slow.get(agent_entity) {
+                    if !self.turn_count.is_multiple_of(*slow) {
+                        continue;
                     }
-                    _ => (),
+                }
+                let ai_input = self.agents.get_mut(agent_entity).unwrap().act(
+                    agent_entity,
+                    &self.world,
+                    self.player_entity,
+                    &mut self.ai_context,
+                    &mut self.rng,
+                );
+                if let Some(input) = ai_input {
+                    match input {
+                        Input::Wait => (),
+                        Input::Walk(direction) => {
+                            if let Some(control_flow) = self.npc_walk(agent_entity, direction) {
+                                return Some(control_flow);
+                            }
+                        }
+                        _ => (),
+                    }
                 }
             }
         }
@@ -867,14 +877,16 @@ impl Game {
 
     fn systems(&mut self) {
         self.world.handle_resurrection();
-        if self.time_of_day().is_night() {
-            if self.nightstalker_countdown.tick() {
-                self.world
-                    .handle_night_stalkers(&mut self.rng, &mut self.message_log);
+        if let Mode::Walking = self.mode {
+            if self.time_of_day().is_night() {
+                if self.nightstalker_countdown.tick() {
+                    self.world
+                        .handle_night_stalkers(&mut self.rng, &mut self.message_log);
+                }
+            } else {
+                self.nightstalker_countdown.value = 1;
+                self.world.despawn_night_stalkers(&mut self.message_log);
             }
-        } else {
-            self.nightstalker_countdown.value = 1;
-            self.world.despawn_night_stalkers(&mut self.message_log);
         }
     }
 
@@ -1105,13 +1117,13 @@ impl Game {
                 if self.terrain_change_countdown.tick() {
                     self.terrain_type = self.terrain_shuffle.next(&mut self.rng);
                 }
-                self.regenerate_terrain();
                 None
             }
             Input::StopDriving => {
                 if self.at_start() {
                     return Err(ActionError::CantStop);
                 }
+                self.regenerate_terrain();
                 self.mode = Mode::Walking;
                 self.message_log.push(Message::GetOutOfCar);
                 None
@@ -1316,7 +1328,19 @@ impl Game {
                             .food
                             .get_mut(self.player_entity)
                             .unwrap()
-                            .increase(5);
+                            .increase(4);
+                        self.world
+                            .components
+                            .energy
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(1);
+                        self.world
+                            .components
+                            .health
+                            .get_mut(self.player_entity)
+                            .unwrap()
+                            .increase(1);
                     }
                     Item::Food => {
                         self.message_log.push(Message::ApplyItem(item));

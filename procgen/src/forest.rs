@@ -85,7 +85,12 @@ impl Map1 {
             }
             if noise > 0.08 {
                 if rng.random::<f64>() < 0.0 + noise * 0.3 {
-                    *cell = Some(if rng.random::<f64>() < 0.1 {
+                    let x = rng.random::<f64>();
+                    *cell = Some(if x < 0.05 {
+                        Tile::FireWood
+                    } else if x < 0.1 {
+                        Tile::DeadTree
+                    } else if x < 0.2 {
                         Tile::DeadTree
                     } else {
                         Tile::Tree
@@ -225,7 +230,7 @@ impl Map1 {
         let empty_space_far_from_player = grid
             .enumerate()
             .filter_map(|(coord, cell)| {
-                if coord.manhattan_distance(player_coord) < 15 {
+                if coord.manhattan_distance(player_coord) > 15 {
                     match cell {
                         Tile::Floor | Tile::Ground | Tile::Grass | Tile::Road => Some(coord),
                         _ => None,

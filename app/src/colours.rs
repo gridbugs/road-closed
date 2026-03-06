@@ -11,7 +11,7 @@ pub const CURSOR: Rgb24 = Rgb24::new_grey(63);
 
 pub const MED_KIT: Rgb24 = HEALTH.saturating_scalar_mul_div(2, 1);
 pub const FIREWOOD: Rgb24 = Rgb24::hex(0xeda12f);
-pub const FRUIT: Rgb24 = Rgb24::hex(0x21ba29);
+pub const FRUIT: Rgb24 = Rgb24::hex(0xff14ac);
 pub const FOOD_ITEM: Rgb24 = FOOD.saturating_scalar_mul_div(2, 1);
 pub const COFFEE: Rgb24 = Rgb24::hex(0xC0FFEE);
 pub const FUEL_CAN: Rgb24 = FUEL.saturating_scalar_mul_div(2, 1);
@@ -21,6 +21,9 @@ pub const ERROR: Rgb24 = Rgb24::new(200, 0, 0);
 pub const ZOMBIE: Rgb24 = Rgb24::new(255, 51, 0);
 pub const SLIME: Rgb24 = Rgb24::hex(0x0bedc3);
 pub const NIGHT_STALKER: Rgb24 = Rgb24::hex(0x7744ed);
+pub const CLIMBER: Rgb24 = Rgb24::hex(0xd9f909);
+pub const DRAINER: Rgb24 = Rgb24::hex(0xf9096d);
+
 pub const HEALTH: Rgb24 = Rgb24::hex(0x93150e);
 pub const ENERGY: Rgb24 = Rgb24::hex(0x2c720e);
 pub const FUEL: Rgb24 = Rgb24::hex(0x520b75);

@@ -238,7 +238,7 @@ impl World {
                 npc_type: NpcType::Zombie,
                 health: Meter::new_full(4),
                 resurrects_in: Meter::new_full(5),
-                bump_damage: 1..=4,
+                bump_damage: 1..=3,
                 zombie: (),
             },
         )
@@ -258,8 +258,8 @@ impl World {
                 },
                 character: (),
                 npc_type: NpcType::Slime,
-                health: Meter::new_full(10),
-                bump_damage: 2..=3,
+                health: Meter::new_full(8),
+                bump_damage: 1..=3,
                 split_on_damage: (),
             },
         )

@@ -1,5 +1,6 @@
-use crate::world::World;
+use crate::{Layer, world::World, world::data::EntityData};
 use coord_2d::{ICoord, UCoord};
+use entity_table::entity_data;
 use rand::{Rng, seq::SliceRandom};
 
 pub struct Terrain {
@@ -218,6 +219,13 @@ impl Terrain {
                     world.spawn_grass(coord);
                 }
                 Water => {
+                    world.spawn_entity(
+                        (coord, Layer::Feature),
+                        entity_data! {
+                            solid: (),
+                        },
+                    );
+
                     world.spawn_water(coord);
                 }
                 WaterTree => {
@@ -363,8 +371,11 @@ impl Terrain {
         };
         cabin_center_items.shuffle(rng);
         for &coord in &self.cabin_centers {
-            if let Some(item) = cabin_center_items.pop() {
-                self.world.spawn_item(coord, item);
+            let layers = self.world.spatial_table.layers_at_checked(coord);
+            if layers.item.is_none() {
+                if let Some(item) = cabin_center_items.pop() {
+                    self.world.spawn_item(coord, item);
+                }
             }
         }
         self.empty_space_far_from_player.shuffle(rng);
@@ -377,17 +388,18 @@ impl Terrain {
         let mut npcs = match distance_remaining {
             0..500 => vec![
                 Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime, Slime, Drainer,
-                Drainer, Drainer,
+                Drainer, Drainer, Drainer,
             ],
             500..1000 => vec![
                 Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime,
-                Drainer,
+                Slime, Drainer,
             ],
             1000..1500 => vec![
                 Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Slime,
+                Slime,
             ],
             1500.. => vec![
-                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Slime,
+                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Slime, Slime,
             ],
         };
         npcs.shuffle(rng);

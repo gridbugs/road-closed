@@ -160,13 +160,22 @@ impl World {
         match weapon.effect() {
             None => (),
             Some(Effect::Knockback) => {
-                for _ in 0..2 {
-                    if let Some(coord) = self.spatial_table.coord_of(character) {
-                        let coord = coord + direction.coord();
-                        if let Some(layers) = self.spatial_table.layers_at(coord) {
-                            if layers.character.is_none() && layers.feature.is_none() {
-                                let _ = self.spatial_table.update_coord(character, coord);
+                if rng.random() {
+                    let mut count = 0;
+                    for _ in 0..2 {
+                        if let Some(coord) = self.spatial_table.coord_of(character) {
+                            let coord = coord + direction.coord();
+                            if let Some(layers) = self.spatial_table.layers_at(coord) {
+                                if layers.character.is_none() && layers.feature.is_none() {
+                                    let _ = self.spatial_table.update_coord(character, coord);
+                                    count += 1;
+                                }
                             }
+                        }
+                    }
+                    if count == 2 {
+                        if let Some(&npc_type) = self.components.npc_type.get(character) {
+                            message_log.push(Message::KnockBack(npc_type));
                         }
                     }
                 }

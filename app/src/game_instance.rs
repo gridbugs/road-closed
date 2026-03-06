@@ -710,7 +710,7 @@ impl GameInstance {
         let min_damage = weapon.damage().start().to_string();
         let max_damage = weapon.damage().end().to_string();
         let effect_str = match weapon.effect() {
-            Some(Effect::Knockback) => ", Knockback",
+            Some(Effect::Knockback) => ", Knockback 50%",
             Some(Effect::Tiring) => ", Tiring",
             None => "",
         };
@@ -1843,6 +1843,11 @@ pub fn message_to_text(message: Message) -> Text {
         Message::DrainEnergy => Text::new(vec![StyledString::plain_text(
             "Some of your energy is drained.".to_string(),
         )]),
+        Message::KnockBack(npc_type) => Text::new(vec![
+            StyledString::plain_text("You knock back the ".to_string()),
+            npc_type_to_styled_string(npc_type),
+            StyledString::plain_text(".".to_string()),
+        ]),
     }
 }
 

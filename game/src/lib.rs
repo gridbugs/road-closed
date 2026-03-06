@@ -207,6 +207,7 @@ pub enum Message {
     AttackingMakesYouTired,
     SlimeSplits,
     DrainEnergy,
+    KnockBack(NpcType),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -928,6 +929,7 @@ impl Game {
                     self.message_log.push(Message::TooTiredToDrive);
                     self.message_log.push(Message::GetOutOfCar);
                     self.mode = Mode::Walking;
+                    self.regenerate_terrain();
                 }
             }
         }
@@ -1113,6 +1115,7 @@ impl Game {
                     self.mode = Mode::Walking;
                     self.message_log.push(Message::OutOfFuel);
                     self.message_log.push(Message::GetOutOfCar);
+                    self.regenerate_terrain();
                 }
                 if self.terrain_change_countdown.tick() {
                     self.terrain_type = self.terrain_shuffle.next(&mut self.rng);

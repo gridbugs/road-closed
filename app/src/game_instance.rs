@@ -1133,11 +1133,29 @@ fn describe_tile(tile: Tile) -> Description {
                 },
             ]),
             description: Some(Text::new(vec![
-                StyledString::plain_text("Apply to recover ".to_string()),
+                StyledString::plain_text("Apply to recover a small amount of ".to_string()),
                 StyledString {
                     string: "food".to_string(),
                     style: Style::new().with_bold(true).with_foreground(
                         colours::FOOD.to_rgba32(255).saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(", ".to_string()),
+                StyledString {
+                    string: "energy".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::ENERGY
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
+                    ),
+                },
+                StyledString::plain_text(" and ".to_string()),
+                StyledString {
+                    string: "health".to_string(),
+                    style: Style::new().with_bold(true).with_foreground(
+                        colours::HEALTH
+                            .to_rgba32(255)
+                            .saturating_scalar_mul_div(3, 2),
                     ),
                 },
                 StyledString::plain_text(".".to_string()),

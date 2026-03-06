@@ -36,6 +36,31 @@ pub fn help(width: u32) -> AppCF<()> {
         ],
     )
     .press_any_key()
+    .then(move || help_1_5(width))
+}
+
+pub fn help_1_5(width: u32) -> AppCF<()> {
+    let t = |s: &str| StyledString {
+        string: s.to_string(),
+        style: Style::plain_text(),
+    };
+    let b = |s: &str| StyledString {
+        string: s.to_string(),
+        style: Style::plain_text().with_bold(true),
+    };
+    text_component(
+        width,
+        vec![
+            b("Tips\n\n\n"),
+            t("- Light a fire (apply firewood) to sleep at night to regain energy and avoid night stalkers.\n\n"),
+            t("- Get in the car by walking into one of its sides.\n\n"),
+            t("- Access the car's inventory by walking into the back of it.\n\n"),
+            t("- Walk into enemies to perform a melee attack.\n\n"),
+            t("- There is no diagonal movement.\n\n"),
+            t("- Mouse over a tile to see information abouti it, such as enemy health or an item's effect.\n\n"),
+        ],
+    )
+    .press_any_key()
 }
 
 pub fn loading(width: u32) -> AppCF<()> {

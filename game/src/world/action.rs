@@ -112,8 +112,8 @@ impl World {
                 .components
                 .energy
                 .get_mut(player_entity)
-                .expect("character lacks hit_points");
-            energy.decrease(1);
+                .expect("character lacks energy");
+            energy.decrease(2);
             message_log.push(Message::DrainEnergy);
         }
     }

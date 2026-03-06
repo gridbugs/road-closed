@@ -1,4 +1,7 @@
-use crate::{Layer, world::World, world::data::EntityData};
+use crate::{
+    Item, Layer,
+    world::{World, data::EntityData},
+};
 use coord_2d::{ICoord, UCoord};
 use entity_table::entity_data;
 use rand::{Rng, seq::SliceRandom};
@@ -322,9 +325,11 @@ impl Terrain {
                 Coffee,
                 MedKit,
                 Food,
+                Food,
             ],
             500..1000 => vec![
                 Weapon(Axe),
+                Weapon(Knife),
                 Weapon(Knife),
                 Armour(LightArmour),
                 FuelCan,
@@ -336,11 +341,13 @@ impl Terrain {
                 FuelCan,
                 Coffee,
                 MedKit,
+                Food,
                 Food,
             ],
             1000..1500 => vec![
                 Weapon(Knife),
                 Armour(LightArmour),
+                Armour(Overalls),
                 Armour(Overalls),
                 FuelCan,
                 FuelCan,
@@ -353,6 +360,7 @@ impl Terrain {
                 FuelCan,
                 Coffee,
                 MedKit,
+                Food,
                 Food,
             ],
             1500.. => vec![
@@ -363,13 +371,13 @@ impl Terrain {
                 FuelCan,
                 FuelCan,
                 FuelCan,
-                FuelCan,
-                Coffee,
-                MedKit,
+                Food,
+                Food,
                 Food,
             ],
         };
         cabin_center_items.shuffle(rng);
+        cabin_center_items.push(FuelCan); // make sure there is at least one fuel can per level
         for &coord in &self.cabin_centers {
             let layers = self.world.spatial_table.layers_at_checked(coord);
             if layers.item.is_none() {
@@ -379,7 +387,7 @@ impl Terrain {
             }
         }
         self.empty_space_far_from_player.shuffle(rng);
-        let num_fruit = 20;
+        let num_fruit = 25;
         for _ in 0..num_fruit {
             if let Some(coord) = self.empty_space_far_from_player.pop() {
                 self.world.spawn_item(coord, Fruit);
@@ -387,16 +395,15 @@ impl Terrain {
         }
         let mut npcs = match distance_remaining {
             0..500 => vec![
-                Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime, Slime, Drainer,
-                Drainer, Drainer, Drainer,
+                Zombie, Zombie, Climber, Climber, Climber, Slime, Slime, Slime, Drainer, Drainer,
+                Drainer, Drainer,
             ],
             500..1000 => vec![
-                Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime,
-                Slime, Drainer,
+                Zombie, Zombie, Zombie, Zombie, Climber, Climber, Climber, Slime, Slime, Slime,
+                Drainer,
             ],
             1000..1500 => vec![
-                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Slime,
-                Slime,
+                Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Climber, Climber, Slime, Slime,
             ],
             1500.. => vec![
                 Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Zombie, Slime, Slime,
